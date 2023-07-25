@@ -6,14 +6,14 @@ on:
 
 jobs:
   update-repo:
+    runs-on: ubuntu-latest
+    container: 
+      image: archlinux:base-devel
+
     env:
       PKGDEST: "/tmp/lunaos-repo"
       repo: "lunaos-repo"
       arch_repo: "x86_64"
-
-    runs-on: ubuntu-latest
-    container: 
-      image: archlinux:base-devel
 
     steps:
 

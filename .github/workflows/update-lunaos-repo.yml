@@ -103,7 +103,7 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
-  - name: Build Nautilus Copy Path Extension
+      - name: Build Nautilus Copy Path Extension
         run: |
           cd /__w/lunaos-repo-actions
           git clone https://aur.archlinux.org/nautilus-copy-path.git
@@ -183,7 +183,7 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
-  - name: Build 8188eu-dkms
+      - name: Build 8188eu-dkms
         run: |
           cd /__w/lunaos-repo-actions
           git clone https://aur.archlinux.org/8188eu-dkms.git

@@ -1,8 +1,8 @@
 name: LunaOS Repo Update
-#on:
- # schedule:
-  #  - cron: '17 */12 * * *' # “At minute 17 past every 12th hour.”
-  #workflow_dispatch:
+on:
+  schedule:
+    - cron: '17 */12 * * *' # “At minute 17 past every 12th hour.”
+  workflow_dispatch:
 
 jobs:
   update-repo:

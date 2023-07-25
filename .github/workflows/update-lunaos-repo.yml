@@ -57,10 +57,7 @@ jobs:
         run: |
           cd /__w/lunaos-repo-actions
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/calamares/lunaos-calamares-config.git
-          pwd
           cd /__w/lunaos-repo-actions/lunaos-calamares-config
-          pwd
-          ls
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
       

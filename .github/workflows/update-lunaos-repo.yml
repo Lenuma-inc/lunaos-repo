@@ -14,6 +14,7 @@ jobs:
       PKGDEST: "/tmp/lunaos-repo"
       repo: "lunaos-repo"
       arch_repo: "x86_64"
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
 

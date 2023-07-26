@@ -246,7 +246,9 @@ jobs:
           sh /__w/lunaos-repo-actions/update-repo.sh
 
       - name: Release all packages to Github Releases Mirror
-        uses: softprops/action-gh-release@v1
+        uses: marvinpinto/action-automatic-releases@latest
         with:
-          tag_name: lunaos-repo
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "lunaos-repo"
+          title: "Automatic Build"
           files: /tmp/lunaos-repo/*

@@ -1,0 +1,1 @@
+[![LunaOS Repo Update](https://github.com/Boria138/lunaos-repo-actions/actions/workflows/update-lunaos-repo.yml/badge.svg)](https://github.com/Boria138/lunaos-repo-actions/actions/workflows/update-lunaos-repo.yml)

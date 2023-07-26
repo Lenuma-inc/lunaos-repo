@@ -250,5 +250,6 @@ jobs:
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: "lunaos-repo"
+          prerelease: false
           title: "Automatic Build"
           files: /tmp/lunaos-repo/*

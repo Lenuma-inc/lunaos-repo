@@ -161,6 +161,14 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
+      - name: Build amf-amdgpu-pro
+        run: |
+          cd /__w/lunaos-repo-actions
+          git clone https://aur.archlinux.org/amdgpu-pro-installer.git
+          cd /__w/lunaos-repo-actions/amdgpu-pro-installer
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+
       - name: Build laptop-mode-tools
         run: |
           cd /__w/lunaos-repo-actions

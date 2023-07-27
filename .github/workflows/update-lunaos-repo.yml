@@ -201,6 +201,14 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
+      - name: Build apindex
+        run: |
+          cd /__w/lunaos-repo-actions
+          git https://aur.archlinux.org/apindex.git
+          cd /__w/lunaos-repo-actions/apindex
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -si"
+
       - name: Build PortProton
         run: |
           cd /__w/lunaos-repo-actions
@@ -248,16 +256,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Generate static site for surge.sh
+        run: |
+          cd /tmp/lunaos-repo/
+          sh apindex .
+
       - name: Release all packages to Github Releases Mirror
         uses: softprops/action-gh-release@v1
         with:
           tag_name: lunaos-repo
           files: /tmp/lunaos-repo/*
 
-      - name: Deploy to foo-bar.surge.sh
+      - name: Deploy all packages to surge.sh Mirror
         uses: dswistowski/surge-sh-action@v1
         with:
           domain: 'lunaos-repo.surge.sh'
           project: '/tmp/lunaos-repo/'
-          login: ${{ secrets.surge_login }}
-          token: ${{ secrets.surge_token }}
+          login: ${{ secrets.SURGE_LOGIN }}
+          token: ${{ secrets.SURGE_TOKEN }}

@@ -245,11 +245,11 @@ jobs:
           cd $PKGDEST
           sh /__w/lunaos-repo-actions/update-repo.sh
 
+      - name: Checkout
+        uses: actions/checkout@v3
+
       - name: Release all packages to Github Releases Mirror
-        uses: marvinpinto/action-automatic-releases@latest
+        uses: softprops/action-gh-release@v1
         with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "lunaos-repo"
-          prerelease: false
-          title: "Automatic Build"
+          tag_name: lunaos-repo
           files: /tmp/lunaos-repo/*

@@ -73,6 +73,14 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
+      - name: Build LunaOS Mirrorlist
+        run: |
+          cd /__w/lunaos-repo-actions
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-mirrorlist.git
+          cd /__w/lunaos-repo-actions/lunaos-mirrorlist
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+
       - name: Build LunaOS Settings
         run: |
           cd /__w/lunaos-repo-actions
@@ -245,18 +253,12 @@ jobs:
           cd $PKGDEST
           sh /__w/lunaos-repo-actions/update-repo.sh
 
-      - name: Generate Directory Listings for surge.sh
-        uses: jayanta525/github-pages-directory-listing@v3.0.0
-        with:
-          FOLDER: /tmp/lunaos-repo
-
-      - name: Checkout
-        uses: actions/checkout@v3
-
       - name: Release all packages to Github Releases Mirror
-        uses: softprops/action-gh-release@v1
+        uses: marvinpinto/action-automatic-releases@latest
         with:
-          tag_name: lunaos-repo
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "lunaos-repo"
+          prerelease: false
           files: /tmp/lunaos-repo/*
 
       - name: Deploy all packages to surge.sh Mirror

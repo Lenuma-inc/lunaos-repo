@@ -95,7 +95,7 @@ jobs:
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-settings.git
           cd /__w/lunaos-repo-actions/lunaos-settings
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
+          su user -c "yes '' | makepkg --noconfirm -sd"
 
       - name: Build LunaOS Zram Defaults
         run: |
@@ -134,6 +134,14 @@ jobs:
           cd /__w/lunaos-repo-actions
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/lunaos-gnome-settings.git
           cd /__w/lunaos-repo-actions/lunaos-gnome-settings
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -sd"
+
+      - name: Build hplip-plugin
+        run: |
+          cd /__w/lunaos-repo-actions
+          git clone https://aur.archlinux.org/hplip-plugin.git
+          cd /__w/lunaos-repo-actions/hplip-plugin
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -sd"
 

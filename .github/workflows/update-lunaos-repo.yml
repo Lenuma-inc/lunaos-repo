@@ -55,7 +55,7 @@ jobs:
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/calamares/calamares.git
           cd /__w/lunaos-repo-actions/calamares
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
+          su user -c "yes '' | makepkg --noconfirm -s"
 
       - name: Build LunaOS Calamares Config
         run: |
@@ -87,7 +87,7 @@ jobs:
           git clone https://aur.archlinux.org/cachyos-ananicy-rules-git.git
           cd /__w/lunaos-repo-actions/cachyos-ananicy-rules-git 
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
+          su user -c "yes '' | makepkg --noconfirm -s"
 
       - name: Build LunaOS Settings
         run: |
@@ -95,7 +95,7 @@ jobs:
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-settings.git
           cd /__w/lunaos-repo-actions/lunaos-settings
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
+          su user -c "yes '' | makepkg --noconfirm -s"
 
       - name: Build LunaOS Zram Defaults
         run: |
@@ -135,7 +135,7 @@ jobs:
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/lunaos-gnome-settings.git
           cd /__w/lunaos-repo-actions/lunaos-gnome-settings
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
+          su user -c "yes '' | makepkg --noconfirm -sd"
 
       - name: Build optimus-manger-qt-kde
         run: |
@@ -143,7 +143,7 @@ jobs:
           git clone https://aur.archlinux.org/optimus-manager-qt-kde.git
           cd /__w/lunaos-repo-actions/optimus-manager-qt-kde
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
+          su user -c "yes '' | makepkg --noconfirm -sd"
 
       - name: Build Nvidia 390xx meta
         run: |
@@ -151,7 +151,7 @@ jobs:
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-390xx-meta.git
           cd /__w/lunaos-repo-actions/nvidia-390xx-meta
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
+          su user -c "yes '' | makepkg --noconfirm -sd"
 
       - name: Build Nvidia 470xx meta
         run: |
@@ -159,7 +159,7 @@ jobs:
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-470xx-meta.git
           cd /__w/lunaos-repo-actions/nvidia-470xx-meta
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
+          su user -c "yes '' | makepkg --noconfirm -sd"
 
       - name: Build Nvidia meta
         run: |
@@ -167,7 +167,7 @@ jobs:
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-meta.git
           cd /__w/lunaos-repo-actions/nvidia-meta
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
+          su user -c "yes '' | makepkg --noconfirm -sd"
 
       - name: Build Nvidia-Tweaks
         run: |
@@ -175,7 +175,7 @@ jobs:
           git clone https://aur.archlinux.org/nvidia-tweaks.git
           cd /__w/lunaos-repo-actions/nvidia-tweaks
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
+          su user -c "yes '' | makepkg --noconfirm -s"
 
       - name: Build Nouveau Reclocking 
         run: |

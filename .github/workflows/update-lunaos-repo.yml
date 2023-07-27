@@ -248,7 +248,7 @@ jobs:
       - name: Generate Directory Listings for surge.sh
         uses: jayanta525/github-pages-directory-listing@v3.0.0
         with:
-          FOLDER: /tmp/lunaos-repo/
+          FOLDER: /tmp/lunaos-repo
 
       - name: Checkout
         uses: actions/checkout@v3

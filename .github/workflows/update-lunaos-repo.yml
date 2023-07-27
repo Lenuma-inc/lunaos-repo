@@ -215,7 +215,7 @@ jobs:
           git clone https://aur.archlinux.org/portproton.git 
           cd /__w/lunaos-repo-actions/portproton
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm --skipchecksums -s"
+          su user -c "yes '' | makepkg --noconfirm -s"
 
       - name: Build StartWine
         run: |
@@ -256,6 +256,7 @@ jobs:
       - name: Generate static site for surge.sh
         run: |
           cd /tmp/lunaos-repo/
+          ls
           sh apindex .
 
       - name: Checkout

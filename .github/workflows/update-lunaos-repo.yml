@@ -273,6 +273,14 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
+      - name: Build Kvantm LibAdwaita theme
+        run: |
+          cd /__w/lunaos-repo-actions
+          git clone https://aur.archlinux.org/kvantum-theme-libadwaita-git.git
+          cd /__w/lunaos-repo-actions/kvantum-theme-libadwaita-git
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+
       - name: Build winesync-dkms
         run: |
           cd /__w/lunaos-repo-actions

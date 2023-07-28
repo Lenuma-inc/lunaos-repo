@@ -71,6 +71,14 @@ jobs:
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-branding.git
           cd /__w/lunaos-repo-actions/lunaos-branding
           chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -sd"
+
+      - name: Build LunaOS Neofetch
+        run: |
+          cd /__w/lunaos-repo-actions
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/lunaos-neofetch.git
+          cd /__w/lunaos-repo-actions/lunaos-neofetch
+          chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
       - name: Build LunaOS Mirrorlist

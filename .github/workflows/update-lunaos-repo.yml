@@ -199,7 +199,7 @@ jobs:
           git clone https://aur.archlinux.org/nvidia-tweaks.git
           cd /__w/lunaos-repo-actions/nvidia-tweaks
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
+          su user -c "yes '' | makepkg --noconfirm -sd"
 
       - name: Build Nouveau Reclocking 
         run: |

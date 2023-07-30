@@ -273,6 +273,14 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
+      - name: Build GRUB Meta
+        run: |
+          cd /__w/lunaos-repo-actions
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/meta-packages/grub-meta.git
+          cd /__w/lunaos-repo-actions/grub-meta
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -d"
+
       - name: Build Kvantm LibAdwaita theme
         run: |
           cd /__w/lunaos-repo-actions

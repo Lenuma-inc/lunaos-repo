@@ -289,6 +289,14 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
+      - name: Build Kvantum Colloid theme
+        run: |
+          cd /__w/lunaos-repo-actions
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/colloid-kvantum-theme.git
+          cd /__w/lunaos-repo-actions/colloid-kvantum-theme
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+
       - name: Build winesync-dkms
         run: |
           cd /__w/lunaos-repo-actions

@@ -37,7 +37,7 @@ jobs:
           pacman-key --recv-key 78B2BAAB82C8D511 --keyserver keyserver.ubuntu.com
           pacman-key --lsign-key 3056513887B78AEB
           pacman-key --lsign-key 78B2BAAB82C8D511
-          pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
+          pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst /__w/lunaos-repo-actions/lunaos-keyring.pkg.tar.zst'
 
           # Enable the multilib repository
           cat << EOM >> /etc/pacman.conf
@@ -53,12 +53,6 @@ jobs:
           echo "GPGKEY=\"${{ secrets.GPGKEY }}\"" >> /etc/makepkg.conf
           chown user -R /tmp
           chown user -R ..
-
-      - name: Install Keyring
-        run: |
-          cd /__w/lunaos-repo-actions
-          chown user -R ..
-          su user -c "yes '' | sudo pacman -U --noconfirm \"lunaos-keyring.pkg.tar.zst\""
 
       - name: Build Calamares
         run: |

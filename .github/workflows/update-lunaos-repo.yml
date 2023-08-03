@@ -49,8 +49,8 @@ jobs:
           EOM
 
           useradd -m user -G wheel && echo "user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-          echo "PACKAGER=\"${{ secrets.PACKAGER }}\"" >> /etc/makepkg.conf
-          echo "GPGKEY=\"${{ secrets.GPGKEY }}\"" >> /etc/makepkg.conf
+          echo "PACKAGER=\"Boris Yumankulov <boriabloger@protonmail.com>\"" >> /etc/makepkg.conf
+          echo "GPGKEY=\"78B2BAAB82C8D511\"" >> /etc/makepkg.conf
           chown user -R /tmp
           chown user -R ..
 

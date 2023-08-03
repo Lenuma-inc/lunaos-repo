@@ -23,14 +23,20 @@ jobs:
 
       - name: Prepare container
         run: |
-          
+          pacman -Syu --noconfirm --needed base-devel git sudo wget sshpass
+
+          wget https://raw.githubusercontent.com/Boria138/lunaos-repo-actions/main/update-repo.sh -P /__w/lunaos-repo-actions
+          wget https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-keyring/-/raw/main/lunaos.gpg?ref_type=heads -P /__w/lunaos-repo-actions
+
           # Use all available threads to build a package
           sed -i 's/#MAKEFLAGS="-j2"/MAKEFLAGS="-j$(nproc) -l$(nproc)"/g' /etc/makepkg.conf
           
           # Chaotic-AUR and your repository keys
           pacman-key --init
-          pacman-key --recv-key 3056513887B78AEB 78B2BAAB82C8D511 --keyserver keyserver.ubuntu.com
-          pacman-key --lsign-key 3056513887B78AEB 78B2BAAB82C8D511
+          pacman-key --add /__w/lunaos-repo-actions/lunaos.gpg
+          pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com
+          pacman-key --lsign-key 3056513887B78AEB
+          pacman-key --lsign-key 78B2BAAB82C8D511
           pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
 
           # Enable the multilib repository
@@ -42,9 +48,6 @@ jobs:
           Include = /etc/pacman.d/chaotic-mirrorlist
           EOM
 
-          pacman -Syu --noconfirm --needed base-devel git sudo wget sshpass
-
-          wget https://raw.githubusercontent.com/Boria138/lunaos-repo-actions/main/update-repo.sh -P /__w/lunaos-repo-actions
           useradd -m user -G wheel && echo "user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
           echo "PACKAGER=\"${{ secrets.PACKAGER }}\"" >> /etc/makepkg.conf
           echo "GPGKEY=\"${{ secrets.GPGKEY }}\"" >> /etc/makepkg.conf

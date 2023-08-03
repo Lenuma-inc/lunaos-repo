@@ -54,11 +54,11 @@ jobs:
           chown user -R /tmp
           chown user -R ..
 
-       - name: Import GPG key
-         uses: crazy-max/ghaction-import-gpg@v5
-         with:
-           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-           passphrase: ${{ secrets.PASSPHRASE }}
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@v5
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.PASSPHRASE }}
 
       - name: Keys List
         run: |

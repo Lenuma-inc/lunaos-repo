@@ -49,6 +49,8 @@ jobs:
           Include = /etc/pacman.d/chaotic-mirrorlist
           EOM
 
+          pacman -Sy
+
           useradd -m user -G wheel && echo "user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
           echo "PACKAGER=\"Boris Yumankulov <boriabloger@protonmail.com>\"" >> /etc/makepkg.conf
           echo "GPGKEY=\"78B2BAAB82C8D511\"" >> /etc/makepkg.conf

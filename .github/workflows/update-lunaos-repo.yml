@@ -23,7 +23,7 @@ jobs:
 
       - name: Prepare container
         run: |
-          pacman -Syu --noconfirm --needed base-devel git sudo wget sshpass
+          pacman -Syu --noconfirm --needed base-devel git sudo wget sshpass gnupg
 
           wget https://raw.githubusercontent.com/Boria138/lunaos-repo-actions/main/update-repo.sh -P /__w/lunaos-repo-actions
           wget https://raw.githubusercontent.com/Boria138/lunaos-repo-actions/main/lunaos-keyring.pkg.tar.zst -P /__w/lunaos-repo-actions
@@ -53,6 +53,16 @@ jobs:
           echo "GPGKEY=\"78B2BAAB82C8D511\"" >> /etc/makepkg.conf
           chown user -R /tmp
           chown user -R ..
+
+        name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@v5
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.PASSPHRASE }}
+
+      - name: Keys List
+        run: |
+          gpg -K
 
       - name: Build Calamares
         run: |

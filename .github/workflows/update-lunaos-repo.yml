@@ -26,7 +26,7 @@ jobs:
           pacman -Syu --noconfirm --needed base-devel git sudo wget sshpass
 
           wget https://raw.githubusercontent.com/Boria138/lunaos-repo-actions/main/update-repo.sh -P /__w/lunaos-repo-actions
-          wget https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-keyring/-/raw/main/lunaos.gpg?ref_type=heads -P /__w/lunaos-repo-actions
+          wget https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-keyring/-/raw/main/lunaos.gpg -P /__w/lunaos-repo-actions
 
           # Use all available threads to build a package
           sed -i 's/#MAKEFLAGS="-j2"/MAKEFLAGS="-j$(nproc) -l$(nproc)"/g' /etc/makepkg.conf

@@ -60,7 +60,7 @@ jobs:
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/calamares/calamares.git
           cd /__w/lunaos-repo-actions/calamares
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s --sign --key 78B2BAAB82C8D511"
+          su user -c "yes '' | makepkg --noconfirm -s --sign"
 
       - name: Build LunaOS Calamares Config
         run: |

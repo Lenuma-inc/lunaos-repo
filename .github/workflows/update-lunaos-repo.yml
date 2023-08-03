@@ -145,14 +145,6 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
-      - name: Build Dash to Dock Gnome Shell Extension
-        run: |
-          cd /__w/lunaos-repo-actions
-          git clone https://aur.archlinux.org/gnome-shell-extension-dash-to-dock.git
-          cd /__w/lunaos-repo-actions/gnome-shell-extension-dash-to-dock
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-
       - name: Build LunaOS Gnome Settings 
         run: |
           cd /__w/lunaos-repo-actions

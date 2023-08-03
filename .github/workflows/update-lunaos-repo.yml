@@ -58,7 +58,7 @@ jobs:
         run: |
           cd /__w/lunaos-repo-actions
           chown user -R ..
-          su user -c "yes '' | pacman -U --noconfirm \"lunaos-keyring.pkg.tar.zst\""
+          su user -c "yes '' | sudo pacman -U --noconfirm \"lunaos-keyring.pkg.tar.zst\""
 
       - name: Build Calamares
         run: |

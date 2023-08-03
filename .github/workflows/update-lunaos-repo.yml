@@ -26,15 +26,15 @@ jobs:
           pacman -Syu --noconfirm --needed base-devel git sudo wget sshpass
 
           wget https://raw.githubusercontent.com/Boria138/lunaos-repo-actions/main/update-repo.sh -P /__w/lunaos-repo-actions
-          wget https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-keyring/-/raw/main/lunaos.gpg -P /__w/lunaos-repo-actions
+          wget https://raw.githubusercontent.com/Boria138/lunaos-repo-actions/main/lunaos-keyring.pkg.tar.zst -P /__w/lunaos-repo-actions
 
           # Use all available threads to build a package
           sed -i 's/#MAKEFLAGS="-j2"/MAKEFLAGS="-j$(nproc) -l$(nproc)"/g' /etc/makepkg.conf
           
           # Chaotic-AUR and your repository keys
           pacman-key --init
-          pacman-key --add /__w/lunaos-repo-actions/lunaos.gpg
           pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com
+          pacman-key --recv-key 78B2BAAB82C8D511 --keyserver keyserver.ubuntu.com
           pacman-key --lsign-key 3056513887B78AEB
           pacman-key --lsign-key 78B2BAAB82C8D511
           pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
@@ -53,6 +53,12 @@ jobs:
           echo "GPGKEY=\"${{ secrets.GPGKEY }}\"" >> /etc/makepkg.conf
           chown user -R /tmp
           chown user -R ..
+
+      - name: Install Keyring
+        run: |
+          cd /__w/lunaos-repo-actions
+          chown user -R ..
+          su user -c "yes '' | pacman -U --noconfirm \"lunaos-keyring.pkg.tar.zst\""
 
       - name: Build Calamares
         run: |

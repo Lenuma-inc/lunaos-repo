@@ -47,7 +47,7 @@ jobs:
           git clone https://gitlab.com/LunaOS/iso/lunaos-archiso.git
           cd /__w/lunaos-repo-actions/lunaos-archiso
           chown user -R ..
-          su user -c "yes '' | mkarchiso -v -w . -o build ."
+          sudo mkarchiso -v -w . -o build ."
 
       - name: Checkout
         uses: actions/checkout@v3

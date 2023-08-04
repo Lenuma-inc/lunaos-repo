@@ -12,19 +12,15 @@ jobs:
       contents: write
 
     container:
-      image: archlinux:latest
+      image: archlinux:base-devel
       options: --privileged
 
     steps:
       - uses: actions/checkout@v3
 
-      - name: Update packages and install archiso
-        run: "pacman -Syu --noconfirm --needed archiso mkinitcpio-archiso git squashfs-tools wget sudo base-devel curl lftp networkmanager"
-
-
       - name: Prepare container
         run: |
-          pacman -Syu --noconfirm --needed archiso mkinitcpio-archiso git squashfs-tools wget sudo base-devel curl lftp networkmanager xz zstd
+          pacman -Syuu --noconfirm --needed archiso mkinitcpio-archiso git squashfs-tools wget sudo base-devel curl lftp networkmanager xz zstd
 
           # Chaotic-AUR repository keys
           pacman-key --init
@@ -44,7 +40,7 @@ jobs:
           Include = /etc/pacman.d/chaotic-mirrorlist
           EOM
 
-          pacman -Sy
+          pacman -Syyuu
 
           useradd -m -G wheel -s /bin/bash user && echo "user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
           chown user:user -R ..

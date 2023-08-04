@@ -1,16 +1,16 @@
-#  First, install our and chaotic-aur mirrorlist. 
+#  First, install our and chaotic-aur mirrorlist and keys.
 
 ```sh
-sudo pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com
-sudo pacman-key --lsign-key 3056513887B78AEB
-sudo pacman -U 'http://lunaos-repo.surge.sh/lunaos-mirrorlist-2-1-x86_64.pkg.tar.zst' 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
+sudo pacman-key --recv-key 3056513887B78AEB 78B2BAAB82C8D511 --keyserver keyserver.ubuntu.com
+sudo pacman-key --lsign-key 3056513887B78AEB 78B2BAAB82C8D511
+sudo pacman -U 'https://lunaos-repo.surge.sh/lunaos-mirrorlist-2-1-x86_64.pkg.tar.zst' 'https://lunaos-repo.surge.sh/
+lunaos-keyring-2-1-any.pkg.tar.zst' 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
 ```
 
 #  Append (adding to the end of the file) to /etc/pacman.conf: 
 
 ```sh
 [lunaos-repo]
-SigLevel = Never
 Include = /etc/pacman.d/lunaos-mirrorlist
 
 [chaotic-aur]

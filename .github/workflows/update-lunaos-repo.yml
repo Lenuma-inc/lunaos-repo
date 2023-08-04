@@ -408,4 +408,4 @@ jobs:
         with:
           node-version: 16
       - run: npm install -g surge
-      - run: surge /tmp/lunaos-repo/ lunaos-repo.surge.sh --token ${{ secrets.SURGE_TOKEN }}
+      - run: surge --project /tmp/lunaos-repo/ --domain https://lunaos-repo.surge.sh --login ${{ secrets.SURGE_LOGIN }} --token ${{ secrets.SURGE_TOKEN }}

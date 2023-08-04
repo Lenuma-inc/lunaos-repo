@@ -1,0 +1,64 @@
+name: Automatically building LunaOS ISO
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    permissions:
+      contents: write
+
+    container:
+      image: archlinux:latest
+      options: --privileged
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Update packages and install archiso
+        run: "pacman -Syu --noconfirm --needed archiso mkinitcpio-archiso git squashfs-tools wget sudo base-devel curl lftp networkmanager"
+
+
+      - name: Prepare container
+        run: |
+          pacman -Syu --noconfirm --needed archiso mkinitcpio-archiso git squashfs-tools wget sudo base-devel curl lftp networkmanager xz zstd
+
+          # Chaotic-AUR repository keys
+          pacman-key --init
+          pacman-key --recv-key 3056513887B78AEB 78B2BAAB82C8D511 --keyserver keyserver.ubuntu.com
+          pacman-key --lsign-key 3056513887B78AEB 78B2BAAB82C8D511
+          pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst' 'https://lunaos-repo.surge.sh/lunaos-keyring-2-1-any.pkg.tar.zst' 'https://lunaos-repo.surge.sh/lunaos-mirrorlist-2-1-x86_64.pkg.tar.zst'
+
+          # Enable the multilib repository
+          cat << EOM >> /etc/pacman.conf
+          [multilib]
+          Include = /etc/pacman.d/mirrorlist
+
+          [lunaos-repo]
+          Include = /etc/pacman.d/lunaos-mirrorlist
+
+          [chaotic-aur]
+          Include = /etc/pacman.d/chaotic-mirrorlist
+          EOM
+
+          pacman -Sy
+
+          useradd -m -G wheel -s /bin/bash build
+          chown build:build -R ..
+
+      - name: Build LunaOS ISO
+        run: |
+          cd /__w/lunaos-repo-actions
+          git clone https://gitlab.com/LunaOS/iso/lunaos-archiso.git
+          cd /__w/lunaos-repo-actions/lunaos-archiso
+          sudo -u build mkarchiso -v -w . -o build .
+
+
+      - name: Release all packages to Github Releases Mirror
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: lunaos-iso
+          files: /__w/lunaos-repo-actions/lunaos-archiso/build/*

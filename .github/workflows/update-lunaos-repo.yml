@@ -208,20 +208,20 @@ jobs:
       - name: Build Nvidia 390.xx drivers
         run: |
           cd /__w/lunaos-repo-actions
-          git clone https://gitlab.com/hybrid-project-developers/pkgbuilds/hybrid-core-pkgbuilds/nvidia-390xx-dkms.git
-          cd /__w/hl-repo/nvidia-390xx-dkms
+          git clone https://gitlab.com/herecura/packages/nvidia-390xx-dkms.git
+          cd /__w/lunaos-repo-actions/nvidia-390xx-dkms
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
           cd /__w/lunaos-repo-actions
           git clone https://gitlab.com/herecura/packages/nvidia-390xx-utils.git
-          cd /__w/hl-repo/nvidia-390xx-utils
+          cd /__w/lunaos-repo-actions/nvidia-390xx-utils
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
           cd /__w/lunaos-repo-actions
           git clone https://gitlab.com/herecura/packages/nvidia-390xx-settings.git
-          cd /__w/hl-repo/nvidia-390xx-settings
+          cd /__w/lunaos-repo-actions/nvidia-390xx-settings
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -sd"
 
@@ -239,20 +239,20 @@ jobs:
       - name: Build Nvidia 470.xx drivers
         run: |
           cd /__w/lunaos-repo-actions
-          git clone https://gitlab.com/hybrid-project-developers/pkgbuilds/hybrid-core-pkgbuilds/nvidia-390xx-dkms.git
-          cd /__w/hl-repo/nvidia-470xx-dkms
+          git clone https://gitlab.com/herecura/packages/nvidia-470xx-dkms.git
+          cd /__w/lunaos-repo-actions/nvidia-470xx-dkms
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
           cd /__w/lunaos-repo-actions
-          git clone https://gitlab.com/herecura/packages/nvidia-390xx-utils.git
-          cd /__w/hl-repo/nvidia-470xx-utils
+          git clone https://gitlab.com/herecura/packages/nvidia-470xx-utils.git
+          cd /__w/lunaos-repo-actions/nvidia-470xx-utils
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
           cd /__w/lunaos-repo-actions
-          git clone https://gitlab.com/herecura/packages/nvidia-390xx-settings.git
-          cd /__w/hl-repo/nvidia-470xx-settings
+          git clone https://gitlab.com/herecura/packages/nvidia-470xx-settings.git
+          cd /__w/lunaos-repo-actions/nvidia-470xx-settings
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -sd"
 

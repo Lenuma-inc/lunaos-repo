@@ -37,17 +37,17 @@ jobs:
 
           pacman -Sy
 
-          useradd -m user -G wheel && echo "user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-          chown user -R /tmp
-          chown user -R ..
-
-      - name: Build LunaOS ISO
-        run: |
-          cd /__w/lunaos-repo-actions
           git clone https://gitlab.com/LunaOS/iso/lunaos-archiso.git
-          cd /__w/lunaos-repo-actions/lunaos-archiso
-          chown user -R ..
-          sudo mkarchiso -v -w . -o build .
+          cd lunaos-archiso
+          mkarchiso -v -w . -o build .
+
+      # - name: Build LunaOS ISO
+      #   run: |
+      #     cd /__w/lunaos-repo-actions
+      #     git clone https://gitlab.com/LunaOS/iso/lunaos-archiso.git
+      #     cd /__w/lunaos-repo-actions/lunaos-archiso
+      #     chown user -R ..
+      #     sudo mkarchiso -v -w . -o build .
 
       - name: Checkout
         uses: actions/checkout@v3
@@ -56,4 +56,4 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: lunaos-iso
-          files: /__w/lunaos-repo-actions/lunaos-archiso/build/*
+          files: lunaos-archiso/build/*

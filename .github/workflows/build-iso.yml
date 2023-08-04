@@ -37,6 +37,10 @@ jobs:
 
           pacman -Sy
 
+          useradd -m user -G wheel && echo "user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+          chown user -R /tmp
+          chown user -R ..
+
       - name: Build LunaOS ISO
         run: |
           cd /__w/lunaos-repo-actions

@@ -28,18 +28,15 @@ jobs:
 
           wget https://raw.githubusercontent.com/Boria138/lunaos-repo-actions/main/update-repo.sh -P /__w/lunaos-repo-actions
           wget https://raw.githubusercontent.com/Boria138/lunaos-repo-actions/main/sign.sh -P /__w/lunaos-repo-actions
-          wget https://raw.githubusercontent.com/Boria138/lunaos-repo-actions/main/lunaos-keyring.pkg.tar.zst -P /__w/lunaos-repo-actions
 
           # Use all available threads to build a package
           sed -i 's/#MAKEFLAGS="-j2"/MAKEFLAGS="-j$(nproc) -l$(nproc)"/g' /etc/makepkg.conf
           
-          # Chaotic-AUR and your repository keys
+          # Chaotic-AUR repository keys
           pacman-key --init
           pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com
-          pacman-key --recv-key 78B2BAAB82C8D511
           pacman-key --lsign-key 3056513887B78AEB
-          pacman-key --lsign-key 78B2BAAB82C8D511
-          pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst' /__w/lunaos-repo-actions/lunaos-keyring.pkg.tar.zst
+          pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
 
           # Enable the multilib repository
           cat << EOM >> /etc/pacman.conf
@@ -205,11 +202,57 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -sd"
 
+      - name: Install nvidia-390xx-settings deps
+        run: pacman -Syu --needed --noconfirm git inetutils jansson gtk3 libxv libvdpau libxext
+
+      - name: Build Nvidia 390.xx drivers
+        run: |
+          cd /__w/lunaos-repo-actions
+          git clone https://gitlab.com/hybrid-project-developers/pkgbuilds/hybrid-core-pkgbuilds/nvidia-390xx-dkms.git
+          cd /__w/hl-repo/nvidia-390xx-dkms
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+
+          cd /__w/lunaos-repo-actions
+          git clone https://gitlab.com/herecura/packages/nvidia-390xx-utils.git
+          cd /__w/hl-repo/nvidia-390xx-utils
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+
+          cd /__w/lunaos-repo-actions
+          git clone https://gitlab.com/herecura/packages/nvidia-390xx-settings.git
+          cd /__w/hl-repo/nvidia-390xx-settings
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -sd"
+
       - name: Build Nvidia 390xx meta
         run: |
           cd /__w/lunaos-repo-actions
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-390xx-meta.git
           cd /__w/lunaos-repo-actions/nvidia-390xx-meta
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -sd"
+
+      - name: Install nvidia-470xx-settings deps
+        run: pacman -Syu --needed --noconfirm git inetutils jansson gtk2 gtk3 libxv libvdpau libxext
+
+      - name: Build Nvidia 470.xx drivers
+        run: |
+          cd /__w/lunaos-repo-actions
+          git clone https://gitlab.com/hybrid-project-developers/pkgbuilds/hybrid-core-pkgbuilds/nvidia-390xx-dkms.git
+          cd /__w/hl-repo/nvidia-470xx-dkms
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+
+          cd /__w/lunaos-repo-actions
+          git clone https://gitlab.com/herecura/packages/nvidia-390xx-utils.git
+          cd /__w/hl-repo/nvidia-470xx-utils
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+
+          cd /__w/lunaos-repo-actions
+          git clone https://gitlab.com/herecura/packages/nvidia-390xx-settings.git
+          cd /__w/hl-repo/nvidia-470xx-settings
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -sd"
 
@@ -361,9 +404,8 @@ jobs:
           files: /tmp/lunaos-repo/*
 
       - name: Deploy all packages to surge.sh Mirror
-        uses: dswistowski/surge-sh-action@v1
+        uses: actions/setup-node@v3
         with:
-          domain: 'lunaos-repo.surge.sh'
-          project: '/tmp/lunaos-repo/'
-          login: ${{ secrets.SURGE_LOGIN }}
-          token: ${{ secrets.SURGE_TOKEN }}
+          node-version: 16
+      - run: npm install -g surge
+      - run: surge /tmp/lunaos-repo/ lunaos-repo.surge.sh --token ${{ secrets.SURGE_TOKEN }}

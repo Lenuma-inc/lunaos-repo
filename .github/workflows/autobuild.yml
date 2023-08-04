@@ -46,15 +46,15 @@ jobs:
 
           pacman -Sy
 
-          useradd -m -G wheel -s /bin/bash build
-          chown build:build -R ..
+          useradd -m -G wheel -s /bin/bash user && echo "user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+          chown user:user -R ..
 
       - name: Build LunaOS ISO
         run: |
           cd /__w/lunaos-repo-actions
           git clone https://gitlab.com/LunaOS/iso/lunaos-archiso.git
           cd /__w/lunaos-repo-actions/lunaos-archiso
-          sudo -u build mkarchiso -v -w . -o build .
+          sudo mkarchiso -v -w . -o build .
 
 
       - name: Release all packages to Github Releases Mirror

@@ -404,8 +404,9 @@ jobs:
           files: /tmp/lunaos-repo/*
 
       - name: Deploy all packages to surge.sh Mirror
-        uses: actions/setup-node@v3
+        uses: dswistowski/surge-sh-action@v1
         with:
-          node-version: 16
-      - run: npm install -g surge
-      - run: surge --project /tmp/lunaos-repo/ --domain https://lunaos-repo.surge.sh --token ${{ secrets.SURGE_TOKEN }}
+          domain: 'https://lunaos-repo.surge.sh'
+          project: '/tmp/lunaos-repo/'
+          login: ${{ secrets.SURGE_LOGIN }}
+          token: ${{ secrets.SURGE_TOKEN }}

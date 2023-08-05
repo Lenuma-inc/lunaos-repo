@@ -62,10 +62,6 @@ jobs:
           passphrase: ${{ secrets.PASSPHRASE }}
           trust_level: 5
 
-      - name: Keys List
-        run: |
-          gpg -K
-
       - name: Build Calamares
         run: |
           cd /__w/lunaos-repo-actions
@@ -205,7 +201,7 @@ jobs:
       - name: Install nvidia-390xx-settings deps
         run: pacman -Syu --needed --noconfirm git inetutils jansson gtk3 libxv libvdpau libxext
 
-      - name: Build Nvidia 390.xx drivers
+      - name: Build Nvidia 390xx drivers
         run: |
           cd /__w/lunaos-repo-actions
           git clone https://gitlab.com/herecura/packages/nvidia-390xx-dkms.git
@@ -236,7 +232,7 @@ jobs:
       - name: Install nvidia-470xx-settings deps
         run: pacman -Syu --needed --noconfirm git inetutils jansson gtk2 gtk3 libxv libvdpau libxext
 
-      - name: Build Nvidia 470.xx drivers
+      - name: Build Nvidia 470xx drivers
         run: |
           cd /__w/lunaos-repo-actions
           git clone https://gitlab.com/herecura/packages/nvidia-470xx-dkms.git
@@ -402,11 +398,3 @@ jobs:
         with:
           tag_name: lunaos-repo
           files: /tmp/lunaos-repo/*
-
-      - name: Deploy all packages to surge.sh Mirror
-        uses: dswistowski/surge-sh-action@v1
-        with:
-          domain: 'https://lunaos-repo.surge.sh'
-          project: '/tmp/lunaos-repo/'
-          login: ${{ secrets.SURGE_LOGIN }}
-          token: ${{ secrets.SURGE_TOKEN }}

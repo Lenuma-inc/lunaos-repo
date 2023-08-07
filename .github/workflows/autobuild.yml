@@ -34,7 +34,6 @@ jobs:
 
           [lunaos-repo]
           Include = /etc/pacman.d/lunaos-mirrorlist
-          SigLevel = Never
 
           [chaotic-aur]
           Include = /etc/pacman.d/chaotic-mirrorlist
@@ -62,4 +61,5 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: lunaos-iso
+          prerelease: true
           files: /__w/lunaos-repo-actions/lunaos-archiso/build/*

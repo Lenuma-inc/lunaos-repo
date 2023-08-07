@@ -94,6 +94,14 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
+      - name: Build cachyos-systemd-boot-manager
+        run: |
+          cd /__w/lunaos-repo-actions
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/systemd-boot-manager.git
+          cd /__w/lunaos-repo-actions/systemd-boot-manager
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -sd"
+
       - name: Build LunaOS Keyring
         run: |
           cd /__w/lunaos-repo-actions
@@ -339,6 +347,14 @@ jobs:
           cd /__w/lunaos-repo-actions/startwine
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
+
+      - name: Build gnome-shell-extension-blur-my-shell
+        run: |
+          cd /__w/lunaos-repo-actions
+          git clone https://aur.archlinux.org/gnome-shell-extension-blur-my-shell.git
+          cd /__w/lunaos-repo-actions/startwine
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -sd"
 
       - name: Build GRUB Hook
         run: |

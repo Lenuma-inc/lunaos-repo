@@ -348,14 +348,6 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
-      - name: Build gnome-shell-extension-blur-my-shell
-        run: |
-          cd /__w/lunaos-repo-actions
-          git clone https://aur.archlinux.org/gnome-shell-extension-blur-my-shell.git
-          cd /__w/lunaos-repo-actions/startwine
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-
       - name: Build GRUB Hook
         run: |
           cd /__w/lunaos-repo-actions

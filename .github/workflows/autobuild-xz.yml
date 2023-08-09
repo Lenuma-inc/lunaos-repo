@@ -1,0 +1,65 @@
+name: Automatically building LunaOS ISO (XZ compression)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    permissions:
+      contents: write
+
+    container:
+      image: archlinux:base-devel
+      options: --privileged
+
+    steps:
+
+      - name: Prepare container
+        run: |
+          pacman -Syuu --noconfirm --needed archiso mkinitcpio-archiso git squashfs-tools wget sudo base-devel curl lftp networkmanager xz zstd
+
+          # Chaotic-AUR repository keys
+          pacman-key --init
+          pacman-key --recv-key 3056513887B78AEB 78B2BAAB82C8D511 --keyserver keyserver.ubuntu.com
+          pacman-key --lsign-key 3056513887B78AEB 78B2BAAB82C8D511
+          pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst' 'https://github.com/Boria138/lunaos-repo-actions/releases/download/lunaos-repo/lunaos-keyring-3-1-any.pkg.tar.zst' 'https://github.com/Boria138/lunaos-repo-actions/releases/download/lunaos-repo/lunaos-mirrorlist-2-2-x86_64.pkg.tar.zst'
+
+          # Enable the multilib repository
+          cat << EOM >> /etc/pacman.conf
+          [multilib]
+          Include = /etc/pacman.d/mirrorlist
+
+          [lunaos-repo]
+          Include = /etc/pacman.d/lunaos-mirrorlist
+
+          [chaotic-aur]
+          Include = /etc/pacman.d/chaotic-mirrorlist
+          EOM
+
+          pacman -Sy --noconfirm rate-mirrors
+
+          rate-mirrors --allow-root arch | tee /etc/pacman.d/mirrorlist
+          rate-mirrors --allow-root chaotic-aur | tee /etc/pacman.d/chaotic-mirrorlist
+
+          useradd -m -G wheel -s /bin/bash user && echo "user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+          chown user:user -R ..
+
+      - name: Build LunaOS ISO
+        run: |
+          cd /__w/lunaos-repo-actions
+          git clone --branch=xz https://gitlab.com/LunaOS/iso/lunaos-archiso.git
+          cd /__w/lunaos-repo-actions/lunaos-archiso
+          sudo mkarchiso -v -w . -o build .
+
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Release ISO to Github Releases
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: lunaos-iso-xz
+          prerelease: true
+          files: /__w/lunaos-repo-actions/lunaos-archiso/build/*

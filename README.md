@@ -3,7 +3,7 @@
 ```sh
 sudo pacman-key --recv-key 3056513887B78AEB 78B2BAAB82C8D511 --keyserver keyserver.ubuntu.com
 sudo pacman-key --lsign-key 3056513887B78AEB 78B2BAAB82C8D511
-sudo pacman -U 'https://lunaos-repo.surge.sh/lunaos-mirrorlist-2-1-x86_64.pkg.tar.zst' 'https://lunaos-repo.surge.sh/lunaos-keyring-2-1-any.pkg.tar.zst' 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
+sudo pacman -U 'https://github.com/Boria138/lunaos-repo-actions/releases/download/lunaos-repo/lunaos-keyring-3-1-any.pkg.tar.zst' 'https://github.com/Boria138/lunaos-repo-actions/releases/download/lunaos-repo/lunaos-mirrorlist-2-2-x86_64.pkg.tar.zst' 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
 ```
 
 #  Append (adding to the end of the file) to /etc/pacman.conf: 

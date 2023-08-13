@@ -94,6 +94,14 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
+      - name: Build LunaOS Neofetch
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/lunaos-plymouth-theme.git
+          cd /__w/lunaos-repo/lunaos-plymouth-theme
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+
       - name: Build cachyos-systemd-boot-manager
         run: |
           cd /__w/lunaos-repo

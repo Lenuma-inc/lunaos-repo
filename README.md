@@ -17,4 +17,4 @@ Include = /etc/pacman.d/chaotic-mirrorlist
 ```
 
 # Repository build status
-[![LunaOS Repo Update](https://github.com/lenuma-inc/lunaos-repo/workflows/update-lunaos-repo.yml/badge.svg)](https://github.com/Boria138/lunaos-repo-actions/actions/workflows/update-lunaos-repo.yml)
+[![LunaOS Repo Update](https://github.com/Lenuma-inc/lunaos-repo/actions/workflows/update-lunaos-repo.yml/badge.svg)](https://github.com/Lenuma-inc/lunaos-repo/actions/workflows/update-lunaos-repo.yml)

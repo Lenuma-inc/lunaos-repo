@@ -421,4 +421,5 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: lunaos-repo
+          append_body: false
           files: /tmp/lunaos-repo/*

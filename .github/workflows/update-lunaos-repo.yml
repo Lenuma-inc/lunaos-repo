@@ -77,6 +77,14 @@ jobs:
           cd /__w/lunaos-repo/lunaos-calamares-config
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
+
+      - name: Build LunaOS Firefox Settings
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/firefox/lunaos-firefox-settings.git
+          cd /__w/lunaos-repo/lunaos-firefox-settings
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -sd"
       
       - name: Build LunaOS Branding
         run: |

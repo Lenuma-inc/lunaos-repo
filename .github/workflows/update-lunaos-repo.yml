@@ -471,10 +471,3 @@ jobs:
           tag_name: lunaos-repo
           append_body: false
           files: /tmp/lunaos-repo/*
-
-      - name: Mirror repository to Gitlab
-        uses: wangchucheng/git-repo-sync@v0.1.0
-        with:
-          target-url: ${{ secrets.GITLAB_URL }}
-          target-username: ${{ secrets.GITLAB_LOGIN }}
-          target-token: ${{ secrets.GITLAB_TOKEN }}

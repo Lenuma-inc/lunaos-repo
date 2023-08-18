@@ -204,7 +204,7 @@ jobs:
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-gpu-profile-selector-git.git 
           cd /__w/lunaos-repo/gnome-shell-extension-gpu-profile-selector-git
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
+          su user -c "yes '' | makepkg --noconfirm -s"
 
       - name: Build Blur my Shell Gnome Shell Extension
         run: |
@@ -212,7 +212,7 @@ jobs:
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-blur-my-shell.git 
           cd /__w/lunaos-repo/gnome-shell-extension-blur-my-shell
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
+          su user -c "yes '' | makepkg --noconfirm -s"
 
       - name: Build Dash to Dock Gnome Shell Extension
         run: |
@@ -220,7 +220,7 @@ jobs:
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-dash-to-dock.git 
           cd /__w/lunaos-repo/gnome-shell-extension-dash-to-dock
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
+          su user -c "yes '' | makepkg --noconfirm -s"
 
       - name: Build AppIndicator and KStatusNotifierItem Support Shell Extension
         run: |
@@ -228,7 +228,7 @@ jobs:
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-appindicator.git 
           cd /__w/lunaos-repo/gnome-shell-extension-appindicator
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
+          su user -c "yes '' | makepkg --noconfirm -s"
 
       - name: Build LunaOS Gnome Settings 
         run: |

@@ -193,7 +193,7 @@ jobs:
       - name: Build Just Perfection Gnome Shell Extension
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/gnome-shell-extension-just-perfection-desktop.git
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-just-perfection-desktop.git
           cd /__w/lunaos-repo/gnome-shell-extension-just-perfection-desktop
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -201,8 +201,32 @@ jobs:
       - name: Build GPU profile selector Gnome Shell Extension
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/gnome-shell-extension-gpu-profile-selector-git.git 
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-gpu-profile-selector-git.git 
           cd /__w/lunaos-repo/gnome-shell-extension-gpu-profile-selector-git
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -sd"
+
+      - name: Build Blur my Shell Gnome Shell Extension
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-blur-my-shell.git 
+          cd /__w/lunaos-repo/gnome-shell-extension-blur-my-shell
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -sd"
+
+      - name: Build Dash to Dock Gnome Shell Extension
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-dash-to-dock.git 
+          cd /__w/lunaos-repo/gnome-shell-extension-dash-to-dock
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -sd"
+
+      - name: Build AppIndicator and KStatusNotifierItem Support Shell Extension
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-appindicator.git 
+          cd /__w/lunaos-repo/gnome-shell-extension-appindicator
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -sd"
 

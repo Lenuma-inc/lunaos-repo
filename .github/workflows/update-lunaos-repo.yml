@@ -464,17 +464,10 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v3
-        
+
       - name: Release all packages to Github Releases Mirror
         uses: softprops/action-gh-release@v1
         with:
           tag_name: lunaos-repo
           append_body: false
           files: /tmp/lunaos-repo/*
-
-      - name: Sync with Gitlab
-        uses: action-pack/gitlab-sync@v3
-        with:
-          username: ${{ secrets.GITLAB_LOGIN }}
-          url: ${{ secrets.GITLAB_URL }}
-          token: ${{ secrets.GITLAB_TOKEN }}

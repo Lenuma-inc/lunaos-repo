@@ -480,10 +480,3 @@ jobs:
           prerelease: false
           automatic_release_tag: lunaos-repo
           files: /tmp/lunaos-repo/*
-
-      - name: Sync to GitLab
-        uses: action-pack/gitlab-sync@v3
-        with:
-          username: ${{ secrets.GITLAB_LOGIN }}
-          url: ${{ secrets.GITLAB_URL }}
-          token: ${{ secrets.GITLAB_TOKEN }}

@@ -473,9 +473,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Release all packages to Github Releases Mirror
-        uses: softprops/action-gh-release@v1
+      - name: Release all packages to GitHub Releases Mirror
+        uses: marvinpinto/action-automatic-releases@latest
         with:
-          tag_name: lunaos-repo
-          append_body: false
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          prerelease: false
+          automatic_release_tag: lunaos-repo
           files: /tmp/lunaos-repo/*
+
+      - name: Sync to GitLab
+        uses: action-pack/gitlab-sync@v3
+        with:
+          username: ${{ secrets.GITLAB_LOGIN }}
+          url: ${{ secrets.GITLAB_URL }}
+          token: ${{ secrets.GITLAB_TOKEN }}

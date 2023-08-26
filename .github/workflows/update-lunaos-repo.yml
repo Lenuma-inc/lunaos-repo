@@ -488,4 +488,4 @@ jobs:
         uses: pixta-dev/repository-mirroring-action@v1
         with:
           target_repo_url: git@gitlab.com:LunaOS/lunaos-repo.git
-          ssh_private_key: "${{ secrets.GITHUB_SYNC }}"
+          ssh_private_key: "${{ secrets.GITLAB_SYNC }}"

@@ -214,6 +214,14 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
+      - name: Build supergfxctl Gnome Shell Extension
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-supergfxctl-gex.git 
+          cd /__w/lunaos-repo/gnome-shell-extension-supergfxctl-gex
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -sd"
+
       - name: Build Blur my Shell Gnome Shell Extension
         run: |
           cd /__w/lunaos-repo
@@ -473,6 +481,14 @@ jobs:
           cd /__w/lunaos-repo
           git clone https://aur.archlinux.org/winesync.git
           cd /__w/lunaos-repo/winesync
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+
+      - name: Build asusctl
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://aur.archlinux.org/asusctl.git
+          cd /__w/lunaos-repo/asusctl
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 

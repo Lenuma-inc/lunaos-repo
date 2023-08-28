@@ -420,6 +420,14 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
+      - name: Build Winetricks
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/winetricks.git 
+          cd /__w/lunaos-repo/winetricks
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+
       - name: Build LunaOS Hooks
         run: |
           cd /__w/lunaos-repo

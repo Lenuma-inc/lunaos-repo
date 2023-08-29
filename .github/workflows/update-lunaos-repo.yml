@@ -24,7 +24,7 @@ jobs:
 
       - name: Prepare container
         run: |
-          pacman -Sy --noconfirm --disable-download-timeout --needed reflector sudo
+          pacman -Syuu --noconfirm --disable-download-timeout --needed reflector sudo
 
           useradd -m user -G wheel && echo "user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 

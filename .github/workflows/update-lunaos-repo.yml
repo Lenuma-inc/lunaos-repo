@@ -220,10 +220,11 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
+- uses: actions/setup-node@v3
+  with:
+    node-version: 18
+
       - name: Build supergfxctl Gnome Shell Extension
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
         run: |
           cd /__w/lunaos-repo
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-supergfxctl-gex.git 

@@ -39,7 +39,10 @@ jobs:
           rm -rf /opt-host/az
           df -h
                     
-          pacman -Syu --noconfirm --disable-download-timeout --needed git wget gnupg
+          pacman -Syu --noconfirm --disable-download-timeout --needed git wget gnupg speedtest-cli
+
+          # Check internet speed
+          speedtest-cli
 
           wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/update-repo.sh -P /__w/lunaos-repo
           wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/sign.sh -P /__w/lunaos-repo
@@ -62,7 +65,10 @@ jobs:
           Include = /etc/pacman.d/chaotic-mirrorlist
           EOM
 
-          pacman -Sy
+          pacman -Sy rate-mirrors
+
+          rate-mirrors --allow-root arch | tee /etc/pacman.d/mirrorlist
+          rate-mirrors --allow-root chaotic-aur | tee /etc/pacman.d/chaotic-mirrorlist
 
           useradd -m user -G wheel && echo "user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
           echo "PACKAGER=\"Boris Yumankulov <boriabloger@protonmail.com>\"" >> /etc/makepkg.conf

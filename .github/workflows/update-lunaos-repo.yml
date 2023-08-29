@@ -52,11 +52,7 @@ jobs:
 
           rate-mirrors --allow-root arch | tee /etc/pacman.d/mirrorlist
           rate-mirrors --allow-root chaotic-aur | tee /etc/pacman.d/chaotic-mirrorlist
-
-          killall -9 node
-
-          echo fs.inotify.max_user_watches=524288 | tee -a /etc/sysctl.conf && sysctl -p
-
+          
           pacman -Sy
 
           useradd -m user -G wheel && echo "user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
@@ -233,12 +229,15 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
 
       - name: Build Blur my Shell Gnome Shell Extension
+        - uses: actions/setup-node@v3
+          with:
+            node-version: 18
         run: |
           cd /__w/lunaos-repo
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-blur-my-shell.git 
           cd /__w/lunaos-repo/gnome-shell-extension-blur-my-shell
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
+          su user -c "yes '' | makepkg --noconfirm -sd"
 
       - name: Build Dash to Dock Gnome Shell Extension
         run: |

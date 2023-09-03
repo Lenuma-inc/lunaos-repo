@@ -4,13 +4,14 @@ on:
     - cron: '17 */12 * * *' # “At minute 17 past every 12th hour.”
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
-  update-repo:
     runs-on: ubuntu-latest
-    container: 
+    timeout-minutes: 120
+
+    permissions:
+      contents: write
+
+    container:
       image: archlinux:base-devel
       options: --privileged
     
@@ -25,7 +26,7 @@ jobs:
 
       - name: Prepare container
         run: |
-          pacman -Syu --noconfirm --disable-download-timeout --needed git wget gnupg speedtest-cli
+          pacman -Syuu --noconfirm --disable-download-timeout --needed git wget gnupg
 
           wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/update-repo.sh -P /__w/lunaos-repo
           wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/sign.sh -P /__w/lunaos-repo
@@ -56,7 +57,7 @@ jobs:
           pacman -Sy
 
           useradd -m user -G wheel && echo "user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-          echo "PACKAGER=\"Boris Yumankulov <boriabloger@protonmail.com>\"" >> /etc/makepkg.conf
+          echo "PACKAGER=\"LunaOS Team\"" >> /etc/makepkg.conf
           echo "GPGKEY=\"78B2BAAB82C8D511\"" >> /etc/makepkg.conf
           chown user -R /tmp
           chown user -R ..
@@ -354,14 +355,6 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -sd"
 
-      - name: Build Nvidia-Tweaks
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/nvidia-tweaks.git
-          cd /__w/lunaos-repo/nvidia-tweaks
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
-
       - name: Build Nouveau Reclocking 
         run: |
           cd /__w/lunaos-repo
@@ -375,14 +368,6 @@ jobs:
           cd /__w/lunaos-repo
           git clone https://aur.archlinux.org/amdgpu-pro-installer.git
           cd /__w/lunaos-repo/amdgpu-pro-installer
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-
-      - name: Build laptop-mode-tools
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/laptop-mode-tools.git
-          cd /__w/lunaos-repo/laptop-mode-tools
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
@@ -416,7 +401,7 @@ jobs:
           git clone https://aur.archlinux.org/portproton.git 
           cd /__w/lunaos-repo/portproton
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
+          su user -c "yes '' | makepkg --noconfirm -d"
 
       - name: Build StartWine
         run: |

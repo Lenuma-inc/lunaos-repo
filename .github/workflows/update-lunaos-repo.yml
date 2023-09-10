@@ -431,7 +431,7 @@ jobs:
       - name: Build PortProton
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/portproton.git 
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/portproton.git
           cd /__w/lunaos-repo/portproton
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -d"

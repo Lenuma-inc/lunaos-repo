@@ -278,6 +278,14 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -sd"
 
+      - name: Build LunaOS Cinnamon Settings
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/cinnamon/lunaos-cinnamon-settings.git
+          cd /__w/lunaos-repo/lunaos-cinnamon-settings
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -sd"
+
       - name: Build hplip-plugin
         run: |
           cd /__w/lunaos-repo

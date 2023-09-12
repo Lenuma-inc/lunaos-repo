@@ -278,14 +278,6 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -sd"
 
-      - name: Build LunaOS XFCE Settings
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/xfce/lunaos-xfce-settings.git
-          cd /__w/lunaos-repo/lunaos-xfce-settings
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-
       - name: Build hplip-plugin
         run: |
           cd /__w/lunaos-repo

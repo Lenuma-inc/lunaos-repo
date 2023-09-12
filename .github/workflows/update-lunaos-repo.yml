@@ -142,14 +142,6 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
-      - name: Build cachyos-systemd-boot-manager
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/systemd-boot-manager.git
-          cd /__w/lunaos-repo/systemd-boot-manager
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-
       - name: Build LunaOS Keyring
         run: |
           cd /__w/lunaos-repo
@@ -302,14 +294,6 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -sd"
 
-      - name: Build optimus-manger-qt-kde
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/optimus-manager-qt-kde.git
-          cd /__w/lunaos-repo/optimus-manager-qt-kde
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-
       - name: Install nvidia-390xx-settings deps
         run: pacman -Syu --needed --noconfirm git inetutils jansson gtk3 libxv libvdpau libxext
 
@@ -388,10 +372,10 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
-      - name: Build LunaOS EnvyControl Nvidia RTD3 fix
+      - name: Build EnvyControl
         run: |
           cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/envycontrol.git
+          git clone https://aur.archlinux.org/envycontrol.git
           cd /__w/lunaos-repo/envycontrol
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -457,14 +441,6 @@ jobs:
           cd /__w/lunaos-repo
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/portproton.git
           cd /__w/lunaos-repo/portproton
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
-
-      - name: Build qogir-cursor-theme-git
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/qogir-cursor-theme-git.git
-          cd /__w/lunaos-repo/qogir-cursor-theme-git
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -d"
 

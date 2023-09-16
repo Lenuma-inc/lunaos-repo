@@ -364,10 +364,18 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -sd"
 
+      - name: Build Nvidia Tweaks
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-tweaks.git
+          cd /__w/lunaos-repo/nvidia-tweaks
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -sd"
+
       - name: Build Nouveau Reclocking 
         run: |
           cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nouveau-reclocking.git
+          git clone https://aur.archlinux.org/nouveau-reclocking.git
           cd /__w/lunaos-repo/nouveau-reclocking
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"

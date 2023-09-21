@@ -564,9 +564,11 @@ jobs:
           fetch-depth: 0
 
       - name: Release all packages to GitHub Releases Mirror
-        uses: softprops/action-gh-release@v1
+        uses: marvinpinto/action-automatic-releases@latest
         with:
-          tag_name: lunaos-repo
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          prerelease: false
+          automatic_release_tag: lunaos-repo
           files: /tmp/lunaos-repo/*
 
 

@@ -396,19 +396,11 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -sd"
 
-      - name: Build Radeon meta
+      - name: Build AMD meta
         run: |
           cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/radeon-meta.git
-          cd /__w/lunaos-repo/radeon-meta
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-
-      - name: Build AMDGPU meta
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/amdgpu-meta.git
-          cd /__w/lunaos-repo/amdgpu-meta
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/amd-meta.git
+          cd /__w/lunaos-repo/amd-meta
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -sd"
 

@@ -158,14 +158,6 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
-      - name: Build cachyos-ananicy-rules-git 
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/cachyos-ananicy-rules-git.git
-          cd /__w/lunaos-repo/cachyos-ananicy-rules-git 
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-
       - name: Build LunaOS Settings
         run: |
           cd /__w/lunaos-repo

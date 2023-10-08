@@ -209,8 +209,8 @@ jobs:
       - name: Build GPU profile selector Gnome Shell Extension
         run: |
           cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-gpu-profile-selector-git.git 
-          cd /__w/lunaos-repo/gnome-shell-extension-gpu-profile-selector-git
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-gpu-profile-selector.git
+          cd /__w/lunaos-repo/gnome-shell-extension-gpu-profile-selector
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 

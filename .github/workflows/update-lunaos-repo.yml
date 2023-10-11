@@ -375,7 +375,7 @@ jobs:
       - name: Build EnvyControl
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/envycontrol.git
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/envycontrol.git
           cd /__w/lunaos-repo/envycontrol
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -441,14 +441,6 @@ jobs:
           cd /__w/lunaos-repo
           git clone https://aur.archlinux.org/startwine.git 
           cd /__w/lunaos-repo/startwine
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-
-      - name: Build Winetricks
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/winetricks.git 
-          cd /__w/lunaos-repo/winetricks
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 

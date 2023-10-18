@@ -524,6 +524,14 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
+      - name: Build python-openai
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://aur.archlinux.org/python-openai.git
+          cd /__w/lunaos-repo/python-openai
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+
       - name: Build asusctl
         run: |
           cd /__w/lunaos-repo

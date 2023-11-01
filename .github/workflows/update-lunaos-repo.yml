@@ -522,6 +522,30 @@ jobs:
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gamescope-session.git
           cd /__w/lunaos-repo/gamescope-session
           chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -sd"
+
+      - name: Build LunaOS Gamescope Session Steam
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gamescope-session-steam.git
+          cd /__w/lunaos-repo/gamescope-session
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -sd"
+
+      - name: Build Gamescope Plus
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://aur.archlinux.org/gamescope-plus.git
+          cd /__w/lunaos-repo/gamescope-plus
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+
+      - name: Build Jupiter Fan Control
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/jupiter-fan-control.git
+          cd /__w/lunaos-repo/jupiter-fan-control
+          chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
       - name: Build Kvantm LibAdwaita theme

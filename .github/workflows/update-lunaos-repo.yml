@@ -522,7 +522,7 @@ jobs:
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gamescope-session.git
           cd /__w/lunaos-repo/gamescope-session
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd
+          su user -c "yes '' | makepkg --noconfirm -sd"
 
       - name: Build LunaOS Gamescope Session Steam
         run: |

@@ -212,7 +212,7 @@ jobs:
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-gpu-profile-selector.git
           cd /__w/lunaos-repo/gnome-shell-extension-gpu-profile-selector
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
+          su user -c "yes '' | makepkg --noconfirm -sd"
 
       - name: Build Steal my focus window Gnome Shell Extension
         run: |

@@ -27,7 +27,7 @@ jobs:
 
       - name: Prepare container
         run: |
-          pacman -Syuu --noconfirm --disable-download-timeout --needed git wget gnupg
+          pacman -Syuu --noconfirm --disable-download-timeout --needed git wget gnupg git-lfs
 
           wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/update-repo.sh -P /__w/lunaos-repo
           wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/sign.sh -P /__w/lunaos-repo

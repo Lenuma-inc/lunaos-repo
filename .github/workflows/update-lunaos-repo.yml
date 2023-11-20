@@ -572,6 +572,22 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
+      - name: Build lunaos-dracut-support
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/lunaos-dracut-support.git
+          cd /__w/lunaos-repo/lunaos-dracut-support
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+
+      - name: Build samba-support
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/samba-support.git
+          cd /__w/lunaos-repo/samba-support
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+
       - name: Build winesync-dkms
         run: |
           cd /__w/lunaos-repo
@@ -593,14 +609,6 @@ jobs:
           cd /__w/lunaos-repo
           git clone https://aur.archlinux.org/galaxybudsclient-bin.git
           cd /__w/lunaos-repo/galaxybudsclient-bin
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-
-      - name: Build python-openai
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/python-openai.git
-          cd /__w/lunaos-repo/python-openai
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 

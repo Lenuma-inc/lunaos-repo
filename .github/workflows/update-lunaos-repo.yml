@@ -575,8 +575,16 @@ jobs:
       - name: Build lunaos-dracut-support
         run: |
           cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/lunaos-dracut-support.git
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-dracut-support.git
           cd /__w/lunaos-repo/lunaos-dracut-support
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+
+      - name: Build lunaos-bash-config
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-bash-config.git
+          cd /__w/lunaos-repo/lunaos-bash-config
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 

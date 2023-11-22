@@ -77,6 +77,7 @@ jobs:
           cd /__w/lunaos-repo/calamares
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
+          su user -c "yes '' | pacman -Rdd mkinitcpio
 
       - name: Build LunaOS Calamares Config
         run: |
@@ -126,27 +127,35 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
+      - name: Build LunaOS Plymouth theme
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/lunaos-plymouth-theme.git
+          cd /__w/lunaos-repo/lunaos-plymouth-theme
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -si"
+
+      - name: Build lunaos-dracut-support
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-dracut-support.git
+          cd /__w/lunaos-repo/lunaos-dracut-support
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -si"
+
       - name: Build Plymouth
         run: |
           cd /__w/lunaos-repo
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/plymouth/plymouth.git
           cd /__w/lunaos-repo/plymouth
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
+          su user -c "yes '' | makepkg --noconfirm -s"
 
       - name: Build LunaOS Plymouth
         run: |
           cd /__w/lunaos-repo
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/plymouth/lunaos-plymouth.git
           cd /__w/lunaos-repo/lunaos-plymouth
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-
-      - name: Build LunaOS Plymouth theme
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/lunaos-plymouth-theme.git
-          cd /__w/lunaos-repo/lunaos-plymouth-theme
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
@@ -585,14 +594,6 @@ jobs:
           cd /__w/lunaos-repo
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/bluez.git
           cd /__w/lunaos-repo/bluez
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-
-      - name: Build lunaos-dracut-support
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-dracut-support.git
-          cd /__w/lunaos-repo/lunaos-dracut-support
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 

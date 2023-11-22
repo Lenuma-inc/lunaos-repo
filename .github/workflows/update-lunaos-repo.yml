@@ -77,7 +77,7 @@ jobs:
           cd /__w/lunaos-repo/calamares
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
-          sudo pacman -Rdd mkinitcpio --noconfirm
+          sudo pacman -Rdd mkinitcpio mkinitcpio-openswap --noconfirm
 
       - name: Build LunaOS Calamares Config
         run: |

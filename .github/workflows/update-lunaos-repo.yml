@@ -110,22 +110,6 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -sd"
 
-      - name: Build Plymouth
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/plymouth/plymouth.git
-          cd /__w/lunaos-repo/plymouth
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-
-      - name: Build LunaOS Plymouth
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/plymouth/lunaos-plymouth.git
-          cd /__w/lunaos-repo/lunaos-plymouth
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-
       - name: Build LunaOS Neofetch
         run: |
           cd /__w/lunaos-repo
@@ -141,6 +125,22 @@ jobs:
           cd /__w/lunaos-repo/lunaos-wallpapers
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
+
+      - name: Build Plymouth
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/plymouth/plymouth.git
+          cd /__w/lunaos-repo/plymouth
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -sd"
+
+      - name: Build LunaOS Plymouth
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/plymouth/lunaos-plymouth.git
+          cd /__w/lunaos-repo/lunaos-plymouth
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -sd"
 
       - name: Build LunaOS Plymouth theme
         run: |
@@ -491,22 +491,22 @@ jobs:
           cd /__w/lunaos-repo/lunaos-hooks
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
-      #
-      # - name: Build LunaOS LibPamac
-      #   run: |
-      #     cd /__w/lunaos-repo
-      #     git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/pamac/lunaos-libpamac.git
-      #     cd /__w/lunaos-repo/lunaos-libpamac
-      #     chown user -R ..
-      #     su user -c "yes '' | makepkg --noconfirm -si"
-      #
-      # - name: Build LunaOS Pamac
-      #   run: |
-      #     cd /__w/lunaos-repo
-      #     git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/pamac/lunaos-pamac.git
-      #     cd /__w/lunaos-repo/lunaos-pamac
-      #     chown user -R ..
-      #     su user -c "yes '' | makepkg --noconfirm -s"
+
+       - name: Build LunaOS LibPamac
+         run: |
+           cd /__w/lunaos-repo
+           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/pamac/lunaos-libpamac.git
+           cd /__w/lunaos-repo/lunaos-libpamac
+           chown user -R ..
+           su user -c "yes '' | makepkg --noconfirm -si"
+
+       - name: Build LunaOS Pamac
+         run: |
+           cd /__w/lunaos-repo
+           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/pamac/lunaos-pamac.git
+           cd /__w/lunaos-repo/lunaos-pamac
+           chown user -R ..
+           su user -c "yes '' | makepkg --noconfirm -s"
 
       - name: Build LunaOS GRUB theme
         run: |

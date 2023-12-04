@@ -646,6 +646,14 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
+      - name: Build pro-audio-support
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/pro-audo-support.git
+          cd /__w/lunaos-repo/pro-audo-support
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -sd"
+
       - name: Build winesync-dkms
         run: |
           cd /__w/lunaos-repo

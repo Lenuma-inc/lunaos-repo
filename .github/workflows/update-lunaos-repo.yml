@@ -614,6 +614,14 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
+      - name: Build galileo-mura
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/galileo-mura.git
+          cd /__w/lunaos-repo/galileo-mura
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+
       - name: Build Kvantm LibAdwaita theme
         run: |
           cd /__w/lunaos-repo

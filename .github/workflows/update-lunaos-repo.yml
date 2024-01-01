@@ -41,6 +41,7 @@ jobs:
           pacman-key --lsign-key 3056513887B78AEB
           pacman -U --disable-download-timeout --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst'
           pacman -U --disable-download-timeout --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
+          pacman -S --disable-download-timeout --noconfirm archlinux-keyring
 
           # Enable the multilib repository
           cat << EOM >> /etc/pacman.conf
@@ -56,7 +57,7 @@ jobs:
           rate-mirrors --allow-root arch | tee /etc/pacman.d/mirrorlist
           rate-mirrors --allow-root chaotic-aur | tee /etc/pacman.d/chaotic-mirrorlist
           
-          pacman -Sy
+          pacman -Syy
 
           useradd -m user -G wheel && echo "user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
           echo "PACKAGER=\"LunaOS Team\"" >> /etc/makepkg.conf

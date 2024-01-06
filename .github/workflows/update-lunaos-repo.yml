@@ -72,6 +72,30 @@ jobs:
           passphrase: ${{ secrets.PASSPHRASE }}
           trust_level: 5
 
+      - name: Build xorg-xwayland with nvidia-explicit-sync patch
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/explicit-sync/xorg-xwayland.git
+          cd /__w/lunaos-repo/xorg-xwayland
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -si"
+
+      - name: Build xorgproto with nvidia-explicit-sync patch
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/explicit-sync/xorgproto.git
+          cd /__w/lunaos-repo/xorgproto
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -si"
+
+      - name: Build xorg-xwayland with nvidia-explicit-sync patch
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/explicit-sync/xorg-xwayland.git
+          cd /__w/lunaos-repo/lunaos-calamares-config
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+
       - name: Build Calamares
         run: |
           cd /__w/lunaos-repo
@@ -404,6 +428,34 @@ jobs:
           cd /__w/lunaos-repo
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-470xx-meta.git
           cd /__w/lunaos-repo/nvidia-470xx-meta
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -sd"
+
+      - name: Build Nvidia 535xx drivers
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://aur.archlinux.org/nvidia-535xx-utils.git
+          cd /__w/lunaos-repo/nvidia-535xx-utils
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -si"
+
+          cd /__w/lunaos-repo
+          git clone https://aur.archlinux.org/lib32-nvidia-535xx-utils.git
+          cd /__w/lunaos-repo/lib32-nvidia-535xx-utils
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+
+          cd /__w/lunaos-repo
+          git clone https://aur.archlinux.org/nvidia-535xx-settings.git
+          cd /__w/lunaos-repo/nvidia-535xx-settings
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -sd"
+
+      - name: Build Nvidia 535xx meta
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-535xx-meta.git
+          cd /__w/lunaos-repo/nvidia-535xx-meta
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -sd"
 

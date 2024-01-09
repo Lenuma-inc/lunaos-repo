@@ -369,57 +369,11 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
-      - name: Install nvidia-390xx-settings deps
-        run: pacman -Syu --needed --noconfirm git inetutils jansson gtk3 libxv libvdpau libxext
-
-      - name: Build Nvidia 390xx drivers
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/herecura/packages/nvidia-390xx-dkms.git
-          cd /__w/lunaos-repo/nvidia-390xx-dkms
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/herecura/packages/nvidia-390xx-utils.git
-          cd /__w/lunaos-repo/nvidia-390xx-utils
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/herecura/packages/nvidia-390xx-settings.git
-          cd /__w/lunaos-repo/nvidia-390xx-settings
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-
       - name: Build Nvidia 390xx meta
         run: |
           cd /__w/lunaos-repo
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-390xx-meta.git
           cd /__w/lunaos-repo/nvidia-390xx-meta
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-
-      - name: Install nvidia-470xx-settings deps
-        run: pacman -Syu --needed --noconfirm git inetutils jansson gtk2 gtk3 libxv libvdpau libxext
-
-      - name: Build Nvidia 470xx drivers
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/herecura/packages/nvidia-470xx-dkms.git
-          cd /__w/lunaos-repo/nvidia-470xx-dkms
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/herecura/packages/nvidia-470xx-utils.git
-          cd /__w/lunaos-repo/nvidia-470xx-utils
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/herecura/packages/nvidia-470xx-settings.git
-          cd /__w/lunaos-repo/nvidia-470xx-settings
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -sd"
 

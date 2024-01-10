@@ -385,6 +385,9 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -sd"
 
+      - name: Install nvidia-535xx-settings build deps
+        run: pacman -Syu --needed --noconfirm git inetutils jansson gtk3 libxv libvdpau libxext
+
       - name: Build Nvidia 535xx drivers
         run: |
           cd /__w/lunaos-repo

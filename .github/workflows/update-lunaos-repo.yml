@@ -240,6 +240,14 @@ jobs:
           cd /__w/lunaos-repo/lunaos-zram-defaults
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
+          
+      - name: Build LunaOS Zram Defaults
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/dkms.git
+          cd /__w/lunaos-repo/dkms
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
 
       - name: Build glibc-eac
         run: |

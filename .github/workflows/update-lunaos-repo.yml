@@ -375,7 +375,7 @@ jobs:
           git clone https://aur.archlinux.org/hplip-plugin.git
           cd /__w/lunaos-repo/hplip-plugin
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
+          su user -c "yes '' | makepkg --noconfirm --skippgpcheck -sd"
 
       - name: Build handygccs-git
         run: |

@@ -560,6 +560,14 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -d"
 
+      - name: Build pylinuxwheel
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://aur.archlinux.org/pylinuxwheel.git
+          cd /__w/lunaos-repo/pylinuxwheel
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -d"
+
       - name: Build LunaOS LibPamac
         run: |
            cd /__w/lunaos-repo

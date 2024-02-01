@@ -758,10 +758,3 @@ jobs:
           prerelease: false
           automatic_release_tag: lunaos-repo
           files: /tmp/lunaos-repo/*
-
-
-      - name: GitLab Sync
-        uses: pixta-dev/repository-mirroring-action@v1
-        with:
-          target_repo_url: git@gitlab.com:LunaOS/lunaos-repo.git
-          ssh_private_key: "${{ secrets.GITLAB_SYNC }}"

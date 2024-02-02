@@ -248,14 +248,14 @@ jobs:
           cd /__w/lunaos-repo/dkms
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
-
-      - name: Build glibc-eac
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/glibc-eac.git
-          cd /__w/lunaos-repo/glibc-eac
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
+      #
+      # - name: Build glibc-eac
+      #   run: |
+      #     cd /__w/lunaos-repo
+      #     git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/glibc-eac.git
+      #     cd /__w/lunaos-repo/glibc-eac
+      #     chown user -R ..
+      #     su user -c "yes '' | makepkg --noconfirm -s"
 
       - name: Build Nautilus Backspace Back Extension 
         run: |
@@ -614,7 +614,7 @@ jobs:
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gamescope-session.git
           cd /__w/lunaos-repo/gamescope-session
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
+          su user -c "yes '' | makepkg --noconfirm -d"
 
       - name: Build LunaOS Gamescope Session Steam
         run: |
@@ -622,7 +622,7 @@ jobs:
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gamescope-session-steam.git
           cd /__w/lunaos-repo/gamescope-session-steam
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
+          su user -c "yes '' | makepkg --noconfirm -d"
 
       - name: Build Jupiter Fan Control
         run: |

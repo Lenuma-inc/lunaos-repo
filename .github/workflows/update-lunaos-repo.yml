@@ -571,7 +571,7 @@ jobs:
       - name: Build pylinuxwheel
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/pylinuxwheel.git
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/pylinuxwheel.git
           cd /__w/lunaos-repo/pylinuxwheel
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -d"

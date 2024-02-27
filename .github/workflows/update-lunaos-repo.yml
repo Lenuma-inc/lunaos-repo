@@ -80,6 +80,14 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
+      - name: Build Gamescope LunaOS Nvidia
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gamescope-lunaos-nvidia.git
+          cd /__w/lunaos-repo/gamescope-lunaos-nvidia
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+
       - name: Build Gamescope LunaOS
         run: |
           cd /__w/lunaos-repo
@@ -135,7 +143,7 @@ jobs:
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/calamares/lunaos-calamares-config.git
           cd /__w/lunaos-repo/lunaos-calamares-config
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
+          su user -c "yes '' | makepkg --noconfirm -d"
 
       - name: Build LunaOS Firefox Settings
         run: |

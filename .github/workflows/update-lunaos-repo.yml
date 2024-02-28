@@ -87,7 +87,6 @@ jobs:
       - name: Build switcheroo-control
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/switcheroo-control.git
           cd /__w/lunaos-repo/switcheroo-control
           chown user -R ..
@@ -97,7 +96,6 @@ jobs:
       - name: Build Gamescope LunaOS Nvidia
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gamescope-lunaos-nvidia.git
           cd /__w/lunaos-repo/gamescope-lunaos-nvidia
           chown user -R ..
@@ -107,7 +105,6 @@ jobs:
       - name: Build Gamescope LunaOS
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gamescope-lunaos.git
           cd /__w/lunaos-repo/gamescope-lunaos
           chown user -R ..
@@ -117,7 +114,6 @@ jobs:
       - name: Build pacman
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/pacman.git
           cd /__w/lunaos-repo/pacman
           chown user -R ..
@@ -127,7 +123,6 @@ jobs:
       - name: Build wayland-protocols with nvidia-explicit-sync patch
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/explicit-sync/wayland-protocols.git
           cd /__w/lunaos-repo/wayland-protocols
           chown user -R ..
@@ -137,7 +132,6 @@ jobs:
       - name: Build xorgproto with nvidia-explicit-sync patch
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/explicit-sync/xorgproto.git
           cd /__w/lunaos-repo/xorgproto
           chown user -R ..
@@ -147,7 +141,6 @@ jobs:
       - name: Build xorg-xwayland with nvidia-explicit-sync patch
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/explicit-sync/xorg-xwayland.git
           cd /__w/lunaos-repo/xorg-xwayland
           chown user -R ..
@@ -157,7 +150,6 @@ jobs:
       - name: Build egl-wayland with nvidia-explicit-sync patch
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/explicit-sync/egl-wayland.git
           cd /__w/lunaos-repo/egl-wayland
           chown user -R ..
@@ -167,7 +159,6 @@ jobs:
       - name: Build Calamares
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/calamares/calamares.git
           cd /__w/lunaos-repo/calamares
           chown user -R ..
@@ -178,7 +169,6 @@ jobs:
       - name: Build LunaOS Calamares Config
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/calamares/lunaos-calamares-config.git
           cd /__w/lunaos-repo/lunaos-calamares-config
           chown user -R ..
@@ -188,7 +178,6 @@ jobs:
       - name: Build LunaOS Firefox Settings
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/firefox/lunaos-firefox-settings.git
           cd /__w/lunaos-repo/lunaos-firefox-settings
           chown user -R ..
@@ -198,7 +187,6 @@ jobs:
       - name: Build LunaOS Firefox Settings GOST
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/firefox/lunaos-firefox-settings-gost.git
           cd /__w/lunaos-repo/lunaos-firefox-settings-gost
           chown user -R ..
@@ -208,7 +196,6 @@ jobs:
       - name: Build LunaOS Hooks
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-hooks.git
           cd /__w/lunaos-repo/lunaos-hooks
           chown user -R ..
@@ -218,7 +205,6 @@ jobs:
       - name: Build LunaOS Wallpapers
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/lunaos-wallpapers.git
           cd /__w/lunaos-repo/lunaos-wallpapers
           chown user -R ..
@@ -228,7 +214,6 @@ jobs:
       - name: Build LunaOS Branding
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-branding.git
           cd /__w/lunaos-repo/lunaos-branding
           chown user -R ..
@@ -238,7 +223,6 @@ jobs:
       - name: Build LunaOS Neofetch
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/lunaos-neofetch.git
           cd /__w/lunaos-repo/lunaos-neofetch
           chown user -R ..
@@ -248,7 +232,6 @@ jobs:
       - name: Build Fastfetch
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/fastfetch.git
           cd /__w/lunaos-repo/fastfetch
           chown user -R ..
@@ -258,7 +241,6 @@ jobs:
       - name: Build LunaOS Plymouth theme
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/lunaos-plymouth-theme.git
           cd /__w/lunaos-repo/lunaos-plymouth-theme
           chown user -R ..
@@ -268,7 +250,6 @@ jobs:
       - name: Build lunaos-dracut-support
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-dracut-support.git
           cd /__w/lunaos-repo/lunaos-dracut-support
           chown user -R ..
@@ -278,7 +259,6 @@ jobs:
       - name: Build Plymouth
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/plymouth/plymouth.git
           cd /__w/lunaos-repo/plymouth
           chown user -R ..
@@ -288,7 +268,6 @@ jobs:
       - name: Build LunaOS Plymouth
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/plymouth/lunaos-plymouth.git
           cd /__w/lunaos-repo/lunaos-plymouth
           chown user -R ..
@@ -298,7 +277,6 @@ jobs:
       - name: Build LunaOS Keyring
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-keyring.git
           cd /__w/lunaos-repo/lunaos-keyring
           chown user -R ..
@@ -308,7 +286,6 @@ jobs:
       - name: Build LunaOS Mirrorlist
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-mirrorlist.git
           cd /__w/lunaos-repo/lunaos-mirrorlist
           chown user -R ..
@@ -318,7 +295,6 @@ jobs:
       - name: Build LunaOS Settings
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-settings.git
           cd /__w/lunaos-repo/lunaos-settings
           chown user -R ..
@@ -328,7 +304,6 @@ jobs:
       - name: Build LunaOS Zram Defaults
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/lunaos-zram-defaults.git
           cd /__w/lunaos-repo/lunaos-zram-defaults
           chown user -R ..
@@ -338,7 +313,6 @@ jobs:
       - name: Build dkms
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/dkms.git
           cd /__w/lunaos-repo/dkms
           chown user -R ..
@@ -348,7 +322,6 @@ jobs:
       - name: Build Nautilus Backspace Back Extension 
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/nautilus-backspace-back-extension.git
           cd /__w/lunaos-repo/nautilus-backspace-back-extension
           chown user -R ..
@@ -358,7 +331,6 @@ jobs:
       - name: Build Nautilus Admin Extension
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://aur.archlinux.org/nautilus-admin-gtk4.git
           cd /__w/lunaos-repo/nautilus-admin-gtk4
           chown user -R ..
@@ -368,7 +340,6 @@ jobs:
       - name: Build Nautilus Copy Path Extension
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://aur.archlinux.org/nautilus-copy-path.git
           cd /__w/lunaos-repo/nautilus-copy-path
           chown user -R ..
@@ -378,7 +349,6 @@ jobs:
       - name: Build Just Perfection Gnome Shell Extension
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-just-perfection-desktop.git
           cd /__w/lunaos-repo/gnome-shell-extension-just-perfection-desktop
           chown user -R ..
@@ -388,7 +358,6 @@ jobs:
       - name: Build GPU profile selector Gnome Shell Extension
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-gpu-profile-selector.git
           cd /__w/lunaos-repo/gnome-shell-extension-gpu-profile-selector
           chown user -R ..
@@ -398,7 +367,6 @@ jobs:
       - name: Build Steal my focus window Gnome Shell Extension
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-stealmyfocus.git
           cd /__w/lunaos-repo/gnome-shell-extension-stealmyfocus
           chown user -R ..
@@ -408,7 +376,6 @@ jobs:
       - name: Build Legacy (GTK3) Theme Scheme Auto Switcher Gnome Shell Extension
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-legacy-theme-auto-switcher.git
           cd /__w/lunaos-repo/gnome-shell-extension-legacy-theme-auto-switcher
           chown user -R ..
@@ -418,7 +385,6 @@ jobs:
       - name: Build Blur my Shell Gnome Shell Extension
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-blur-my-shell.git 
           cd /__w/lunaos-repo/gnome-shell-extension-blur-my-shell
           chown user -R ..
@@ -428,7 +394,6 @@ jobs:
       - name: Build Dash to Dock Gnome Shell Extension
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-dash-to-dock.git 
           cd /__w/lunaos-repo/gnome-shell-extension-dash-to-dock
           chown user -R ..
@@ -438,7 +403,6 @@ jobs:
       - name: Build AppIndicator and KStatusNotifierItem Support Shell Extension
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-appindicator.git 
           cd /__w/lunaos-repo/gnome-shell-extension-appindicator
           chown user -R ..
@@ -448,7 +412,6 @@ jobs:
       - name: Build LunaOS Gnome Settings 
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/lunaos-gnome-settings.git
           cd /__w/lunaos-repo/lunaos-gnome-settings
           chown user -R ..
@@ -458,7 +421,6 @@ jobs:
       - name: Build Optimus GPU Switcher KDE Plasma Widget
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/plasma/optimus-gpu-switcher-kde-plasma-widget.git
           cd /__w/lunaos-repo/optimus-gpu-switcher-kde-plasma-widget
           chown user -R ..
@@ -468,7 +430,6 @@ jobs:
       - name: Build Otto kde theme
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/plasma/kde-otto-theme.git
           cd /__w/lunaos-repo/kde-otto-theme
           chown user -R ..
@@ -478,7 +439,6 @@ jobs:
       - name: Build LunaOS Plasma Settings 
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/plasma/lunaos-plasma-settings.git
           cd /__w/lunaos-repo/lunaos-plasma-settings
           chown user -R ..
@@ -488,7 +448,6 @@ jobs:
       - name: Build Handheld Daemon (HHD)
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/hhd.git
           cd /__w/lunaos-repo/hhd
           chown user -R ..
@@ -498,7 +457,6 @@ jobs:
       - name: Build Uresourced
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/uresourced.git
           cd /__w/lunaos-repo/uresourced
           chown user -R ..
@@ -508,7 +466,6 @@ jobs:
       - name: Build hplip-plugin
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://aur.archlinux.org/hplip-plugin.git
           cd /__w/lunaos-repo/hplip-plugin
           chown user -R ..
@@ -518,7 +475,6 @@ jobs:
       - name: Build handygccs-git
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://aur.archlinux.org/handygccs-git.git
           cd /__w/lunaos-repo/handygccs-git
           chown user -R ..
@@ -528,7 +484,6 @@ jobs:
       - name: Build Nvidia 390xx meta
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-390xx-meta.git
           cd /__w/lunaos-repo/nvidia-390xx-meta
           chown user -R ..
@@ -538,7 +493,6 @@ jobs:
       - name: Build Nvidia 470xx meta
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-470xx-meta.git
           cd /__w/lunaos-repo/nvidia-470xx-meta
           chown user -R ..
@@ -571,7 +525,6 @@ jobs:
       - name: Build Nvidia 535xx meta
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-535xx-meta.git
           cd /__w/lunaos-repo/nvidia-535xx-meta
           chown user -R ..
@@ -581,7 +534,6 @@ jobs:
       - name: Build Nvidia meta
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-meta.git
           cd /__w/lunaos-repo/nvidia-meta
           chown user -R ..
@@ -591,7 +543,6 @@ jobs:
       - name: Build Nvidia Tweaks
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-tweaks.git
           cd /__w/lunaos-repo/nvidia-tweaks
           chown user -R ..
@@ -601,7 +552,6 @@ jobs:
       - name: Build Nouveau Reclocking 
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://aur.archlinux.org/nouveau-reclocking.git
           cd /__w/lunaos-repo/nouveau-reclocking
           chown user -R ..
@@ -611,7 +561,6 @@ jobs:
       - name: Build EnvyControl
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/envycontrol.git
           cd /__w/lunaos-repo/envycontrol
           chown user -R ..
@@ -621,7 +570,6 @@ jobs:
       - name: Build Intel meta
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/intel-meta.git
           cd /__w/lunaos-repo/intel-meta
           chown user -R ..
@@ -631,7 +579,6 @@ jobs:
       - name: Build AMD meta
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/amd-meta.git
           cd /__w/lunaos-repo/amd-meta
           chown user -R ..
@@ -641,7 +588,6 @@ jobs:
       - name: Build AMD Vulkan Select
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/amd-vulkan-select.git
           cd /__w/lunaos-repo/amd-vulkan-select
           chown user -R ..
@@ -651,7 +597,6 @@ jobs:
       - name: Build ROCM Meta
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/rocm-meta.git
           cd /__w/lunaos-repo/rocm-meta
           chown user -R ..
@@ -661,7 +606,6 @@ jobs:
       - name: Build hid-sony-panic-fix-dkms
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://aur.archlinux.org/hid-sony-panic-fix-dkms.git
           cd /__w/lunaos-repo/hid-sony-panic-fix-dkms
           chown user -R ..
@@ -671,7 +615,6 @@ jobs:
       - name: Build e1000e-dkms
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://aur.archlinux.org/e1000e-dkms.git
           cd /__w/lunaos-repo/e1000e-dkms
           chown user -R ..
@@ -681,7 +624,6 @@ jobs:
       - name: Build 8188eu-dkms
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://aur.archlinux.org/8188eu-dkms.git
           cd /__w/lunaos-repo/8188eu-dkms
           chown user -R ..
@@ -691,7 +633,6 @@ jobs:
       - name: Build PortProton
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/portproton.git
           cd /__w/lunaos-repo/portproton
           chown user -R ..
@@ -701,7 +642,6 @@ jobs:
       - name: Build StartWine
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://aur.archlinux.org/startwine.git 
           cd /__w/lunaos-repo/startwine
           chown user -R ..
@@ -711,7 +651,6 @@ jobs:
       - name: Build geforcenow-electron-bin
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://aur.archlinux.org/geforcenow-electron-bin.git
           cd /__w/lunaos-repo/geforcenow-electron-bin
           chown user -R ..
@@ -721,7 +660,6 @@ jobs:
       - name: Build pylinuxwheel
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/pylinuxwheel.git
           cd /__w/lunaos-repo/pylinuxwheel
           chown user -R ..
@@ -731,7 +669,6 @@ jobs:
       - name: Build LunaOS LibPamac
         run: |
            cd /__w/lunaos-repo
-           yay -Yc --noconfirm
            git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/pamac/lunaos-libpamac.git
            cd /__w/lunaos-repo/lunaos-libpamac
            chown user -R ..
@@ -741,7 +678,6 @@ jobs:
       - name: Build LunaOS Pamac
         run: |
            cd /__w/lunaos-repo
-           yay -Yc --noconfirm
            git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/pamac/lunaos-pamac.git
            cd /__w/lunaos-repo/lunaos-pamac
            chown user -R ..
@@ -751,7 +687,6 @@ jobs:
       - name: Build LunaOS GRUB theme
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/lunaos-grub-theme.git
           cd /__w/lunaos-repo/lunaos-grub-theme
           chown user -R ..
@@ -761,7 +696,6 @@ jobs:
       - name: Build GRUB
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/grub.git
           cd /__w/lunaos-repo/grub
           chown user -R ..
@@ -771,7 +705,6 @@ jobs:
       - name: Build GRUB Meta
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/meta-packages/grub-meta.git
           cd /__w/lunaos-repo/grub-meta
           chown user -R ..
@@ -781,7 +714,6 @@ jobs:
       - name: Build LunaOS Gamescope Session
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gamescope-session.git
           cd /__w/lunaos-repo/gamescope-session
           chown user -R ..
@@ -791,7 +723,6 @@ jobs:
       - name: Build LunaOS Gamescope Session Steam
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gamescope-session-steam.git
           cd /__w/lunaos-repo/gamescope-session-steam
           chown user -R ..
@@ -801,7 +732,6 @@ jobs:
       - name: Build Jupiter Fan Control
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/jupiter-fan-control.git
           cd /__w/lunaos-repo/jupiter-fan-control
           chown user -R ..
@@ -811,7 +741,6 @@ jobs:
       - name: Build Jupiter Hw Support
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/jupiter-hw-support.git
           cd /__w/lunaos-repo/jupiter-hw-support
           chown user -R ..
@@ -821,7 +750,6 @@ jobs:
       - name: Build Refresh Mirrors
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/refresh-mirrors.git
           cd /__w/lunaos-repo/refresh-mirrors
           chown user -R ..
@@ -831,7 +759,6 @@ jobs:
       - name: Build vpower
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/vpower.git
           cd /__w/lunaos-repo/vpower
           chown user -R ..
@@ -841,7 +768,6 @@ jobs:
       - name: Build galileo-mura
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/galileo-mura.git
           cd /__w/lunaos-repo/galileo-mura
           chown user -R ..
@@ -851,7 +777,6 @@ jobs:
       - name: Build Kvantm LibAdwaita theme
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://aur.archlinux.org/kvantum-theme-libadwaita-git.git
           cd /__w/lunaos-repo/kvantum-theme-libadwaita-git
           chown user -R ..
@@ -861,7 +786,6 @@ jobs:
       - name: Build Kvantum Colloid theme
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/colloid-kvantum-theme.git
           cd /__w/lunaos-repo/colloid-kvantum-theme
           chown user -R ..
@@ -871,7 +795,6 @@ jobs:
       - name: Build bluez with Valve patches
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/bluez.git
           cd /__w/lunaos-repo/bluez
           chown user -R ..
@@ -881,7 +804,6 @@ jobs:
       - name: Build systemd-boot-manager
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/systemd-boot-manager.git
           cd /__w/lunaos-repo/systemd-boot-manager
           chown user -R ..
@@ -891,7 +813,6 @@ jobs:
       - name: Build lunaos-bash-config
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-bash-config.git
           cd /__w/lunaos-repo/lunaos-bash-config
           chown user -R ..
@@ -901,7 +822,6 @@ jobs:
       - name: Build pro-audio-support
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/pro-audo-support.git
           cd /__w/lunaos-repo/pro-audo-support
           chown user -R ..
@@ -911,7 +831,6 @@ jobs:
       - name: Build winesync-dkms
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://aur.archlinux.org/winesync.git
           cd /__w/lunaos-repo/winesync
           chown user -R ..
@@ -921,7 +840,6 @@ jobs:
       - name: Build Figma
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://aur.archlinux.org/figma-linux-bin.git
           cd /__w/lunaos-repo/figma-linux-bin
           chown user -R ..
@@ -931,7 +849,6 @@ jobs:
       - name: Build galaxybudsclient-bin
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://aur.archlinux.org/galaxybudsclient-bin.git
           cd /__w/lunaos-repo/galaxybudsclient-bin
           chown user -R ..
@@ -941,7 +858,6 @@ jobs:
       - name: Build asusctl
         run: |
           cd /__w/lunaos-repo
-          yay -Yc --noconfirm
           git clone https://aur.archlinux.org/asusctl.git
           cd /__w/lunaos-repo/asusctl
           chown user -R ..

@@ -128,6 +128,14 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
 
+      - name: Build egl-wayland with nvidia-explicit-sync patch
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/explicit-sync/egl-wayland.git
+          cd /__w/lunaos-repo/egl-wayland
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+
       - name: Build Calamares
         run: |
           cd /__w/lunaos-repo

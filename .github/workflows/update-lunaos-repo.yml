@@ -43,6 +43,7 @@ jobs:
 
           wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/update-repo.sh -P /__w/lunaos-repo
           wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/sign.sh -P /__w/lunaos-repo
+          wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/download_bin.sh -P /__w/lunaos-repo
 
           # Use all available threads to build a package
           wget https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/pacman/-/raw/main/makepkg.conf -O /etc/makepkg.conf
@@ -92,6 +93,11 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/switcheroo-control
+
+      - name: Download bin packages
+        run: |
+          cd $PKGDEST
+          sh /__w/lunaos-repo/download_bin.sh
 
       - name: Build Gamescope LunaOS Nvidia
         run: |

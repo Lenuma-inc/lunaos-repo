@@ -46,7 +46,7 @@ jobs:
           wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/download_bin.sh -P /__w/lunaos-repo
 
           # Use all available threads to build a package
-          wget https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/pacman/-/raw/main/makepkg.conf -O /etc/makepkg.conf
+          wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/makepkg.conf -O /etc/makepkg.conf
           
           # Chaotic-AUR repository keys
           pacman-key --init
@@ -146,12 +146,12 @@ jobs:
 
       - name: Build xorg-xwayland with nvidia-explicit-sync patch
         run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/explicit-sync/xorg-xwayland.git
-          cd /__w/lunaos-repo/xorg-xwayland
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/xorg-xwayland
+           cd /__w/lunaos-repo
+           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/explicit-sync/xorg-xwayland.git
+           cd /__w/lunaos-repo/xorg-xwayland
+           chown user -R ..
+           su user -c "yes '' | makepkg --noconfirm -s"
+           rm -r /__w/lunaos-repo/xorg-xwayland
 
       - name: Build egl-wayland with nvidia-explicit-sync patch
         run: |
@@ -822,7 +822,7 @@ jobs:
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-bash-config.git
           cd /__w/lunaos-repo/lunaos-bash-config
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
+          su user -c "yes '' | makepkg --noconfirm -d"
           rm -r /__w/lunaos-repo/lunaos-bash-config
 
       - name: Build pro-audio-support

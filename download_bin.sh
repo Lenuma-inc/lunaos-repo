@@ -1,7 +1,9 @@
 #!/bin/bash
 
-LINUX_VER=$(curl -s https://arch.asus-linux.org/ | grep -oP "linux-g14-\d+\.\d+\.\d+\.arch1-1(?:\.\d+)?-x86_64\.pkg\.tar\.zst" | sort -V | tail -1)
-HEADERS_VER=$(curl -s https://arch.asus-linux.org/ | grep -oP "linux-g14-headers-\d+\.\d+\.\d+\.arch1-1(?:\.\d+)?-x86_64\.pkg\.tar\.zst" | sort -V | tail -1)
+LINUX_G14_VER=$(curl -s https://arch.asus-linux.org/ | grep -oP "linux-g14-\d+\.\d+\.\d+\.arch1-1(?:\.\d+)?-x86_64\.pkg\.tar\.zst" | sort -V | tail -1)
+HEADERS_G14_VER=$(curl -s https://arch.asus-linux.org/ | grep -oP "linux-g14-headers-\d+\.\d+\.\d+\.arch1-1(?:\.\d+)?-x86_64\.pkg\.tar\.zst" | sort -V | tail -1)
+LINUX_HANDHELD_URL=$(curl -s "https://api.github.com/repos/hhd-dev/linux-handheld/releases/latest" | grep "browser_download_url" | cut -d '"' -f 4)
 
-curl -LO "https://arch.asus-linux.org/$LINUX_VER"
-curl -LO "https://arch.asus-linux.org/$HEADERS_VER"
+wget "https://arch.asus-linux.org/$LINUX_G14_VER"
+wget "https://arch.asus-linux.org/$HEADERS_G14_VER"
+wget $LINUX_HANDHELD_URL

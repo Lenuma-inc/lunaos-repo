@@ -307,6 +307,15 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/dkms
 
+      - name: Build bauh
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/bauh.git
+          cd /__w/lunaos-repo/bauh
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/bauh
+
       - name: Build Nautilus Backspace Back Extension 
         run: |
           cd /__w/lunaos-repo

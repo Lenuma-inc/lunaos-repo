@@ -343,15 +343,6 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/nautilus-copy-path
 
-      - name: Build Just Perfection Gnome Shell Extension
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-just-perfection-desktop.git
-          cd /__w/lunaos-repo/gnome-shell-extension-just-perfection-desktop
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/gnome-shell-extension-just-perfection-desktop
-
       - name: Build GPU profile selector Gnome Shell Extension
         run: |
           cd /__w/lunaos-repo

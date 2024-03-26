@@ -343,15 +343,6 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/nautilus-copy-path
 
-      - name: Build GPU profile selector Gnome Shell Extension
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-gpu-profile-selector.git
-          cd /__w/lunaos-repo/gnome-shell-extension-gpu-profile-selector
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-          rm -r /__w/lunaos-repo/gnome-shell-extension-gpu-profile-selector
-
       - name: Build Steal my focus window Gnome Shell Extension
         run: |
           cd /__w/lunaos-repo
@@ -360,6 +351,15 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/gnome-shell-extension-stealmyfocus
+
+      - name: Build GPU profile selector Gnome Shell Extension
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-gpu-profile-selector.git
+          cd /__w/lunaos-repo/gnome-shell-extension-gpu-profile-selector
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -sd"
+          rm -r /__w/lunaos-repo/gnome-shell-extension-gpu-profile-selector
 
       - name: Build Legacy (GTK3) Theme Scheme Auto Switcher Gnome Shell Extension
         run: |

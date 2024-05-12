@@ -226,6 +226,15 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -si"
           rm -r /__w/lunaos-repo/lunaos-plymouth-theme
 
+      - name: Build memstrack
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://aur.archlinux.org/memstrack.git
+          cd /__w/lunaos-repo/memstrack
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -si"
+          rm -r /__w/lunaos-repo/memstrack
+
       - name: Build lunaos-dracut-support
         run: |
           cd /__w/lunaos-repo
@@ -234,6 +243,15 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -si"
           rm -r /__w/lunaos-repo/lunaos-dracut-support
+
+      - name: Build distrobox
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/distobox.git
+          cd /__w/lunaos-repo/distobox
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/distobox
 
       - name: Build Plymouth
         run: |

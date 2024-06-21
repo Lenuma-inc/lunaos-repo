@@ -117,14 +117,32 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/pacman
 
-      - name: Build egl-wayland with nvidia-explicit-sync patch
+      - name: Build pacman-contrib
         run: |
           cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/explicit-sync/egl-wayland.git
-          cd /__w/lunaos-repo/egl-wayland
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/pacman-contrib.git
+          cd /__w/lunaos-repo/pacman-contrib
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/egl-wayland
+          rm -r /__w/lunaos-repo/pacman-contrib
+
+      - name: Build base-devel
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/base-devel.git
+          cd /__w/lunaos-repo/base-devel
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/base-devel
+
+      - name: Build find-the-command
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/find-the-command.git
+          cd /__w/lunaos-repo/find-the-command
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/find-the-command
 
       - name: Build Calamares
         run: |
@@ -225,6 +243,15 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -si"
           rm -r /__w/lunaos-repo/memstrack
+
+      - name: Build ptyxis
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://aur.archlinux.org/ptyxis.git
+          cd /__w/lunaos-repo/ptyxis
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/ptyxis
 
       - name: Build ca-certificates-russian-root
         run: |

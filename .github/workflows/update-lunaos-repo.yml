@@ -117,6 +117,15 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/pacman
 
+      - name: Build LunaOS Package Manager
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-package-manager.git
+          cd /__w/lunaos-repo/lunaos-package-manager
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -d"
+          rm -r /__w/lunaos-repo/lunaos-package-manager
+
       - name: Build pacman-contrib
         run: |
           cd /__w/lunaos-repo

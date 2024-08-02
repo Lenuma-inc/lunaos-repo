@@ -99,14 +99,14 @@ jobs:
           cd $PKGDEST
           sh /__w/lunaos-repo/download_bin.sh
 
-      # - name: Build Gamescope LunaOS
-      #   run: |
-      #     cd /__w/lunaos-repo
-      #     git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gamescope-lunaos.git
-      #     cd /__w/lunaos-repo/gamescope-lunaos
-      #     chown user -R ..
-      #     su user -c "yes '' | makepkg --noconfirm -s"
-      #     rm -r /__w/lunaos-repo/gamescope-lunaos
+      - name: Build Gamescope LunaOS
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gamescope-lunaos.git
+          cd /__w/lunaos-repo/gamescope-lunaos
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/gamescope-lunaos
 
 
       - name: Build LunaOS Package Manager

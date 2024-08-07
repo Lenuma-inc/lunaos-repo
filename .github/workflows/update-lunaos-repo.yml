@@ -461,7 +461,7 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/gnome-shell-extension-dash-to-dock
 
-      - name: Build AppIndicator and KStatusNotifierItem Support Shell Extension
+      - name: Build AppIndicator and KStatusNotifierItem Support GNOME Shell Extension
         run: |
           cd /__w/lunaos-repo
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-appindicator.git 
@@ -469,6 +469,15 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/gnome-shell-extension-appindicator
+
+      - name: Build Clipboard Indicator GNOME Shell Extension
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-clipboard-indicator.git
+          cd /__w/lunaos-repo/gnome-shell-extension-clipboard-indicator
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/gnome-shell-extension-clipboard-indicator
 
       - name: Build LunaOS Gnome Settings 
         run: |
@@ -861,7 +870,6 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/bluez
-
 
       - name: Build lunaos-bash-config
         run: |

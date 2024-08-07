@@ -326,6 +326,15 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/lunaos-keyring
 
+      - name: Build mkarchiso
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/mkarchiso.git
+          cd /__w/lunaos-repo/mkarchiso
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/mkarchiso
+
       - name: Build LunaOS Mirrorlist
         run: |
           cd /__w/lunaos-repo
@@ -853,14 +862,6 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/bluez
 
-      - name: Build systemd-boot-manager
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/systemd-boot-manager.git
-          cd /__w/lunaos-repo/systemd-boot-manager
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/systemd-boot-manager
 
       - name: Build lunaos-bash-config
         run: |

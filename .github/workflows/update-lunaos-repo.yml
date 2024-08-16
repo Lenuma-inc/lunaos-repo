@@ -108,7 +108,6 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/gamescope-lunaos
 
-
       - name: Build LunaOS Package Manager
         run: |
           cd /__w/lunaos-repo
@@ -290,7 +289,7 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -d"
           rm -r /__w/lunaos-repo/lunaos-dracut-support
 
-      - name: Build  kernel-install-for-dracut
+      - name: Build kernel-install-for-dracut
         run: |
           cd /__w/lunaos-repo
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/kernel-install-for-dracut.git
@@ -442,6 +441,15 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/gnome-shell-extension-legacy-theme-auto-switcher
+          
+      - name: Build adw-gtk-theme
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/adw-gtk-theme.git
+          cd /__w/lunaos-repo/adw-gtk-theme
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/adw-gtk-theme
 
       - name: Build Blur my Shell Gnome Shell Extension
         run: |

@@ -85,6 +85,15 @@ jobs:
           passphrase: ${{ secrets.PASSPHRASE }}
           trust_level: 5
 
+      - name: Build steam
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/steam.git
+          cd /__w/lunaos-repo/steam
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/steam
+
       - name: Build switcheroo-control
         run: |
           cd /__w/lunaos-repo

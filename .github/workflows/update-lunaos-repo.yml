@@ -168,7 +168,7 @@ jobs:
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/calamares/calamares.git
           cd /__w/lunaos-repo/calamares
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
+          su user -c "yes '' | makepkg --noconfirm --skipchecksums -s"
           sudo pacman -Rdd mkinitcpio mkinitcpio-openswap --noconfirm
           rm -r /__w/lunaos-repo/calamares
 

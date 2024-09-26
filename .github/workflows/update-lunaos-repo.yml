@@ -85,6 +85,42 @@ jobs:
           passphrase: ${{ secrets.PASSPHRASE }}
           trust_level: 5
 
+      - name: Build LunaOS Package Manager
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-package-manager.git
+          cd /__w/lunaos-repo/lunaos-package-manager
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -si"
+          rm -r /__w/lunaos-repo/lunaos-package-manager
+
+      - name: Build pacman
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/pacman.git
+          cd /__w/lunaos-repo/pacman
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -si"
+          rm -r /__w/lunaos-repo/pacman
+
+      - name: Build pacman-contrib
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/pacman-contrib.git
+          cd /__w/lunaos-repo/pacman-contrib
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -si"
+          rm -r /__w/lunaos-repo/pacman-contrib
+
+      - name: Build base-devel
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/base-devel.git
+          cd /__w/lunaos-repo/base-devel
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -si"
+          rm -r /__w/lunaos-repo/base-devel
+
       - name: Build steam
         run: |
           cd /__w/lunaos-repo
@@ -117,42 +153,6 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/gamescope-lunaos
 
-      - name: Build LunaOS Package Manager
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-package-manager.git
-          cd /__w/lunaos-repo/lunaos-package-manager
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -si"
-          rm -r /__w/lunaos-repo/lunaos-package-manager
-
-      - name: Build pacman
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/pacman.git
-          cd /__w/lunaos-repo/pacman
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/pacman
-
-      - name: Build pacman-contrib
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/pacman-contrib.git
-          cd /__w/lunaos-repo/pacman-contrib
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/pacman-contrib
-
-      - name: Build base-devel
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/base-devel.git
-          cd /__w/lunaos-repo/base-devel
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/base-devel
-
       - name: Build find-the-command
         run: |
           cd /__w/lunaos-repo
@@ -168,7 +168,7 @@ jobs:
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/calamares/calamares.git
           cd /__w/lunaos-repo/calamares
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm --skipchecksums -s"
+          su user -c "yes '' | makepkg --noconfirm  -s"
           sudo pacman -Rdd mkinitcpio mkinitcpio-openswap --noconfirm
           rm -r /__w/lunaos-repo/calamares
 
@@ -349,7 +349,7 @@ jobs:
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/mkarchiso.git
           cd /__w/lunaos-repo/mkarchiso
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm --skipchecksums -s"
+          # su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/mkarchiso
 
       - name: Build LunaOS Mirrorlist

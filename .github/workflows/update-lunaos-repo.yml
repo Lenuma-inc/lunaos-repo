@@ -103,6 +103,11 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -si"
           rm -r /__w/lunaos-repo/pacman
 
+      - name: check libalpm.so and pacman versiom
+        run: |
+          pacman -Q pacman
+          pacman -Ql pacman | grep -i libalpm.so
+
       - name: Build pacman-contrib
         run: |
           cd /__w/lunaos-repo
@@ -596,7 +601,7 @@ jobs:
           rm -r /__w/lunaos-repo/nvidia-470xx-meta
 
       - name: Install nvidia-535xx-settings build deps
-        run: pacman -Syu --needed --noconfirm git inetutils jansson gtk3 libxv libvdpau libxext
+        run: pacman -Sy --needed --noconfirm git inetutils jansson gtk3 libxv libvdpau libxext
 
       - name: Build Nvidia 535xx drivers
         run: |
@@ -752,6 +757,11 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -d"
           rm -r /__w/lunaos-repo/pylinuxwheel
+
+      - name: check libalpm.so and pacman versiom
+        run: |
+          pacman -Q pacman
+          pacman -Ql pacman | grep -i libalpm.so
 
       - name: Build LunaOS LibPamac
         run: |

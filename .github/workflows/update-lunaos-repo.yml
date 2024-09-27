@@ -126,6 +126,15 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -si"
           rm -r /__w/lunaos-repo/base-devel
 
+      - name: Build yay
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/yay
+          cd /__w/lunaos-repo/yay
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/yay
+
       - name: Build steam
         run: |
           cd /__w/lunaos-repo

@@ -366,15 +366,6 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/lunaos-keyring
 
-      - name: Build mkarchiso
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/mkarchiso.git
-          cd /__w/lunaos-repo/mkarchiso
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/mkarchiso
-
       - name: Build LunaOS Mirrorlist
         run: |
           cd /__w/lunaos-repo

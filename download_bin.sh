@@ -25,7 +25,7 @@ LINUX_CHOS_HEADERS_URL=$(curl -s "https://api.github.com/repos/ChimeraOS/linux-c
         match($0, /"browser_download_url": "(https[^"]*)"/, arr);
         print arr[1];
     }
-}' | grep "linux-chimeraos-" | head -1)
+}' | grep "linux-chimeraos-headers" | head -1)
 
 wget "https://arch.asus-linux.org/$LINUX_G14_VER"
 wget "https://arch.asus-linux.org/$HEADERS_G14_VER"

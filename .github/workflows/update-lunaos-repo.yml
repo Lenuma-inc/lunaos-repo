@@ -18,7 +18,7 @@ jobs:
         - /usr:/usr-host
         - /opt:/opt-host
       options: --privileged
-    
+
     env:
       PKGDEST: "/tmp/lunaos-repo"
       repo: "lunaos-repo"
@@ -39,7 +39,7 @@ jobs:
           rm -rf /opt-host/hostedtoolcache
           rm -rf /opt-host/az
 
-          pacman -Syuu --noconfirm --disable-download-timeout --needed git wget gnupg git-lfs
+          pacman -Syuu --noconfirm --disable-download-timeout --needed git wget gnupg
 
           wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/update-repo.sh -P /__w/lunaos-repo
           wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/sign.sh -P /__w/lunaos-repo
@@ -47,7 +47,7 @@ jobs:
 
           # Use all available threads to build a package
           wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/makepkg.conf -O /etc/makepkg.conf
-          
+
           # Chaotic-AUR repository keys
           yes | pacman -Scc
           pacman-key --init
@@ -70,7 +70,7 @@ jobs:
 
           rate-mirrors --allow-root arch | tee /etc/pacman.d/mirrorlist
           rate-mirrors --allow-root chaotic-aur | tee /etc/pacman.d/chaotic-mirrorlist
-          
+
           pacman -Syy
 
           useradd -m user -G wheel && echo "user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers

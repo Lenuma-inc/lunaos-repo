@@ -292,7 +292,7 @@ jobs:
           git clone https://aur.archlinux.org/lenovolegionlinux-git.git
           cd /__w/lunaos-repo/lenovolegionlinux-git
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
+          su user -c "yes '' | makepkg --noconfirm -si"
           rm -r /__w/lunaos-repo/lenovolegionlinux-git
 
       - name: Build lenovolegionlinux-dkms-git

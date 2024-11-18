@@ -485,6 +485,15 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/gnome-shell-extension-stealmyfocus
 
+      - name: Build Disable unredirect fullscreen windows Gnome Shell Extension
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-disable-unredirect.git
+          cd /__w/lunaos-repo/gnome-shell-extension-disable-unredirect
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/gnome-shell-extension-disable-unredirect
+
       - name: Build GPU profile selector Gnome Shell Extension
         run: |
           cd /__w/lunaos-repo

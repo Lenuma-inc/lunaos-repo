@@ -917,6 +917,15 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/steamdeck-dsp
+          
+      - name: Build SteamDeck DKMS
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/steamdeck-dkms.git
+          cd /__w/lunaos-repo/steamdeck-dkms
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/steamdeck-dkms
 
       - name: Build galileo-mura
         run: |

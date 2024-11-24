@@ -936,6 +936,15 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/linux-firmware-neptune
 
+      - name: Build linux-firmware-asus
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/linux-firmware-asus.git
+          cd /__w/lunaos-repo/linux-firmware-asus
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/linux-firmware-asus
+
       - name: Build galileo-mura
         run: |
           cd /__w/lunaos-repo

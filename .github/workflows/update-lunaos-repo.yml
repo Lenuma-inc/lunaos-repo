@@ -430,6 +430,15 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -sd"
           rm -r /__w/lunaos-repo/lunaos-settings
+          
+      - name: Build LunaOS HandHeld Settings
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-settings-handheld.git
+          cd /__w/lunaos-repo/lunaos-settings-handheld
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -sd"
+          rm -r /__w/lunaos-repo/lunaos-settings-handheld
 
       - name: Build LunaOS Zram Defaults
         run: |

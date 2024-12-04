@@ -1,7 +1,7 @@
 name: LunaOS Repo Update
 on:
   schedule:
-    - cron: '17 */12 * * *' # “At minute 17 past every 12th hour.”
+    - cron: "17 */12 * * *" # “At minute 17 past every 12th hour.”
   workflow_dispatch:
 
 jobs:
@@ -27,7 +27,6 @@ jobs:
       GPG_PASSPHRASE: ${{ secrets.PASSPHRASE }}
 
     steps:
-
       - name: Prepare container
         run: |
           # Maximize build space
@@ -117,6 +116,15 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -si"
           rm -r /__w/lunaos-repo/pacman-contrib
+
+      - name: Build ca-certificates-etersoft-root
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/ca-certificates-etersoft-root.git
+          cd /__w/lunaos-repo/ca-certificates-etersoft-root
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/ca-certificates-etersoft-root
 
       - name: Build pacutils
         run: |
@@ -321,7 +329,7 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/lenovolegionlinux-dkms-git
-          
+
       - name: Build snoop
         run: |
           cd /__w/lunaos-repo
@@ -376,7 +384,6 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -d"
           rm -r /__w/lunaos-repo/lunaos-dracut-support
 
-
       - name: Build lunaos-samba-support
         run: |
           cd /__w/lunaos-repo
@@ -430,7 +437,7 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -sd"
           rm -r /__w/lunaos-repo/lunaos-settings
-          
+
       - name: Build LunaOS HandHeld Settings
         run: |
           cd /__w/lunaos-repo
@@ -448,7 +455,7 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/lunaos-zram-defaults
-          
+
       - name: Build dkms
         run: |
           cd /__w/lunaos-repo
@@ -467,7 +474,7 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/bauh
 
-      - name: Build Nautilus Backspace Back Extension 
+      - name: Build Nautilus Backspace Back Extension
         run: |
           cd /__w/lunaos-repo
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/nautilus-backspace-back-extension.git
@@ -538,7 +545,7 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/gnome-shell-extension-legacy-theme-auto-switcher
-          
+
       - name: Build adw-gtk-theme
         run: |
           cd /__w/lunaos-repo
@@ -551,7 +558,7 @@ jobs:
       - name: Build Blur my Shell Gnome Shell Extension
         run: |
           cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-blur-my-shell.git 
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-blur-my-shell.git
           cd /__w/lunaos-repo/gnome-shell-extension-blur-my-shell
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -sd"
@@ -560,7 +567,7 @@ jobs:
       - name: Build Dash to Dock Gnome Shell Extension
         run: |
           cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-dash-to-dock.git 
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-dash-to-dock.git
           cd /__w/lunaos-repo/gnome-shell-extension-dash-to-dock
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -569,7 +576,7 @@ jobs:
       - name: Build AppIndicator and KStatusNotifierItem Support GNOME Shell Extension
         run: |
           cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-appindicator.git 
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-appindicator.git
           cd /__w/lunaos-repo/gnome-shell-extension-appindicator
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -584,7 +591,7 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/gnome-shell-extension-clipboard-indicator
 
-      - name: Build LunaOS Gnome Settings 
+      - name: Build LunaOS Gnome Settings
         run: |
           cd /__w/lunaos-repo
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/lunaos-gnome-settings.git
@@ -611,7 +618,7 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/kde-otto-theme
 
-      - name: Build LunaOS Plasma Settings 
+      - name: Build LunaOS Plasma Settings
         run: |
           cd /__w/lunaos-repo
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/plasma/lunaos-plasma-settings.git
@@ -724,7 +731,7 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -sd"
           rm -r /__w/lunaos-repo/nvidia-tweaks
 
-      - name: Build Nouveau Reclocking 
+      - name: Build Nouveau Reclocking
         run: |
           cd /__w/lunaos-repo
           git clone https://aur.archlinux.org/nouveau-reclocking.git
@@ -768,7 +775,7 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -sd"
           rm -r /__w/lunaos-repo/amd-vulkan-select
-          
+
       - name: Build ROCM Meta
         run: |
           cd /__w/lunaos-repo
@@ -839,21 +846,21 @@ jobs:
 
       - name: Build LunaOS LibPamac
         run: |
-           cd /__w/lunaos-repo
-           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/pamac/lunaos-libpamac.git
-           cd /__w/lunaos-repo/lunaos-libpamac
-           chown user -R ..
-           su user -c "yes '' | makepkg --noconfirm -si"
-           rm -r /__w/lunaos-repo/lunaos-libpamac
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/pamac/lunaos-libpamac.git
+          cd /__w/lunaos-repo/lunaos-libpamac
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -si"
+          rm -r /__w/lunaos-repo/lunaos-libpamac
 
       - name: Build LunaOS Pamac
         run: |
-           cd /__w/lunaos-repo
-           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/pamac/lunaos-pamac.git
-           cd /__w/lunaos-repo/lunaos-pamac
-           chown user -R ..
-           su user -c "yes '' | makepkg --noconfirm -s"
-           rm -r /__w/lunaos-repo/lunaos-pamac
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/pamac/lunaos-pamac.git
+          cd /__w/lunaos-repo/lunaos-pamac
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/lunaos-pamac
 
       - name: Build LunaOS GRUB theme
         run: |
@@ -1033,7 +1040,7 @@ jobs:
           cd /__w/lunaos-repo/figma-linux-bin
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/figma-linux-bin 
+          rm -r /__w/lunaos-repo/figma-linux-bin
 
       - name: Build galaxybudsclient-bin
         run: |

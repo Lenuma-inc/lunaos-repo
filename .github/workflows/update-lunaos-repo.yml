@@ -117,16 +117,6 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -si"
           rm -r /__w/lunaos-repo/pacman-contrib
 
-
-      - name: Build python with BOLT
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/toolchain/python.git
-          cd /__w/lunaos-repo/python
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -si"
-          rm -r /__w/lunaos-repo/python
-
       - name: Build ca-certificates-etersoft-root
         run: |
           cd /__w/lunaos-repo
@@ -713,6 +703,9 @@ jobs:
           cd /__w/lunaos-repo/nvidia-535xx-settings
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -sd"
+          rm -r /__w/lunaos-repo/nvidia-535xx-settings
+          rm -r /__w/lunaos-repo/lib32-nvidia-535xx-utils
+          rm -r /__w/lunaos-repo/nvidia-535xx-utils
 
       - name: Build Nvidia 535xx meta
         run: |
@@ -794,15 +787,6 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -sd"
           rm -r /__w/lunaos-repo/rocm-meta
-
-      - name: Build hid-sony-panic-fix-dkms
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/hid-sony-panic-fix-dkms.git
-          cd /__w/lunaos-repo/hid-sony-panic-fix-dkms
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/hid-sony-panic-fix-dkms
 
       - name: Build e1000e-dkms
         run: |

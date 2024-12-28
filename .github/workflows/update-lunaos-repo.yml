@@ -946,6 +946,51 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/steamdeck-dsp
 
+      - name: Build ds-inhibit
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://aur.archlinux.org/ds-inhibit.git
+          cd /__w/lunaos-repo/ds-inhibit
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/ds-inhibit
+
+      - name: Build ayaneo-platform-dkms-git
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://aur.archlinux.org/ayaneo-platform-dkms-git.git
+          cd /__w/lunaos-repo/ayaneo-platform-dkms-git
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/ayaneo-platform-dkms-git
+
+      - name: Build ayn-platform-dkms-git
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://aur.archlinux.org/ayn-platform-dkms-git.git
+          cd /__w/lunaos-repo/ayn-platform-dkms-git
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/ayn-platform-dkms-git
+
+      - name: Build hid-msi-claw-dkms-git
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://aur.archlinux.org/hid-msi-claw-dkms-git.git
+          cd /__w/lunaos-repo/hid-msi-claw-dkms-git
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/hid-msi-claw-dkms-git
+
+      - name: Build gpd-fan-driver-dkms-git
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://aur.archlinux.org/gpd-fan-driver-dkms-git.git
+          cd /__w/lunaos-repo/gpd-fan-driver-dkms-git
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/gpd-fan-driver-dkms-git
+
       - name: Build SteamDeck DKMS
         run: |
           cd /__w/lunaos-repo

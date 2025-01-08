@@ -6,7 +6,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
 
     permissions:
@@ -29,14 +29,6 @@ jobs:
     steps:
       - name: Prepare container
         run: |
-          # Maximize build space
-          rm -rf /usr-host/share/dotnet
-          rm -rf /usr-host/share/swift
-          rm -rf /usr-host/share/java
-          rm -rf /usr-host/local/lib/android
-          rm -rf /opt-host/ghc
-          rm -rf /opt-host/hostedtoolcache
-          rm -rf /opt-host/az
 
           pacman -Syuu --noconfirm --disable-download-timeout --needed git wget gnupg
 
@@ -84,6 +76,11 @@ jobs:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.PASSPHRASE }}
           trust_level: 5
+
+      - name: Maximize build space
+        uses: ublue-os/remove-unwanted-software@v7
+        with:
+          remove-codeql: "true"
 
       - name: Build Refresh Mirrors
         run: |

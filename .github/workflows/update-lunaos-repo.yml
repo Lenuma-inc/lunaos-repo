@@ -78,9 +78,20 @@ jobs:
           trust_level: 5
 
       - name: Maximize build space
-        uses: ublue-os/remove-unwanted-software@v7
-        with:
-          remove-codeql: "true"
+        run: |
+          echo "==> Available space before cleanup"
+          echo
+          df -h
+          rm -rf /usr-host/share/dotnet
+          rm -rf /usr-host/share/swift
+          rm -rf /usr-host/share/java
+          rm -rf /usr-host/local/lib/android
+          rm -rf /opt-host/ghc
+          rm -rf /opt-host/hostedtoolcache
+          rm -rf /opt-host/az
+          echo "==> Available space after cleanup"
+          echo
+          df -h
 
       - name: Build Refresh Mirrors
         run: |

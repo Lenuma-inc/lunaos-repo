@@ -103,6 +103,17 @@ jobs:
           echo
           df -h
 
+        # Kernel build too long use bin from Nobara copr
+      - name: Build linux-fsync-nobara-bin
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://aur.archlinux.org/linux-fsync-nobara-bin.git
+          cd /__w/lunaos-repo/linux-fsync-nobara-bin
+          chown user -R ..
+          sed -i '/^options=(/s/)/ '\''!debug'\'' )/' PKGBUILD
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/linux-fsync-nobara-bin
+
       - name: Build Refresh Mirrors
         run: |
           cd /__w/lunaos-repo

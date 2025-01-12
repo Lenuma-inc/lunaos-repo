@@ -4,13 +4,15 @@ on:
     - cron: "17 */12 * * *" # “At minute 17 past every 12th hour.”
   workflow_dispatch:
 
-jobs:
-  build:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 120
+env:
+  PKGDEST: "/tmp/lunaos-repo"
+  repo: "lunaos-repo"
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  GPG_PASSPHRASE: ${{ secrets.PASSPHRASE }}
 
-    permissions:
-      contents: write
+jobs:
+  build-kernel:
+    runs-on: ubuntu-24.04
 
     container:
       image: archlinux:base-devel
@@ -18,23 +20,12 @@ jobs:
         - /usr:/usr-host
         - /opt:/opt-host
       options: --privileged
-
-    env:
-      PKGDEST: "/tmp/lunaos-repo"
-      repo: "lunaos-repo"
-      arch_repo: "x86_64"
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      GPG_PASSPHRASE: ${{ secrets.PASSPHRASE }}
-
     steps:
+
       - name: Prepare container
         run: |
 
           pacman -Syuu --noconfirm --disable-download-timeout --needed git wget gnupg
-
-          wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/update-repo.sh -P /__w/lunaos-repo
-          wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/sign.sh -P /__w/lunaos-repo
-          wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/download_bin.sh -P /__w/lunaos-repo
 
           # Use all available threads to build a package
           wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/makepkg.conf -O /etc/makepkg.conf
@@ -43,17 +34,12 @@ jobs:
           pacman-key --init
           pacman -S --noconfirm archlinux-keyring
 
-          # Surface Linux repo
-          curl -s https://raw.githubusercontent.com/linux-surface/linux-surface/master/pkg/keys/surface.asc \
-          | pacman-key --add -
-          pacman-key --finger 56C464BAAC421453
-          pacman-key --lsign-key 56C464BAAC421453
-
           # Chaotic-AUR repo
           pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com
           pacman-key --lsign-key 3056513887B78AEB
           pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst'
           pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
+          mkdir -p /etc/gnupg && echo "auto-key-retrieve" >> /etc/gnupg/gpg.conf
 
           # Enable the multilib repository
           cat << EOM >> /etc/pacman.conf
@@ -62,9 +48,112 @@ jobs:
 
           [chaotic-aur]
           Include = /etc/pacman.d/chaotic-mirrorlist
+          EOM
 
-          [linux-surface]
-          Server = https://pkg.surfacelinux.com/arch/
+          pacman -Sy --noconfirm --disable-download-timeout --needed rate-mirrors yay
+
+          rate-mirrors --allow-root arch | tee /etc/pacman.d/mirrorlist
+          rate-mirrors --allow-root chaotic-aur | tee /etc/pacman.d/chaotic-mirrorlist
+
+          pacman -Syy
+
+          useradd -m user -G wheel && echo "user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+          echo "PACKAGER=\"LunaOS Team\"" >> /etc/makepkg.conf
+          echo "GPGKEY=\"78B2BAAB82C8D511\"" >> /etc/makepkg.conf
+          chown user -R /tmp
+          chown user -R ..
+
+      - name: Maximize build space
+        run: |
+          echo "==> Available space before cleanup"
+          echo
+          df -h
+          rm -rf /usr-host/share/dotnet
+          rm -rf /usr-host/share/swift
+          rm -rf /usr-host/share/java
+          rm -rf /usr-host/local/lib/android
+          rm -rf /opt-host/ghc
+          rm -rf /opt-host/hostedtoolcache
+          rm -rf /opt-host/az
+          echo "==> Available space after cleanup"
+          echo
+          df -h
+
+      - name: Build linux-fsync-nobara
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/kernel-fsync-nobara.git
+          cd /__w/lunaos-repo/kernel-fsync-nobara
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/kernel-fsync-nobara
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-fsync-package
+          path: |
+            ${{ env.PKGDEST }}/*.pkg.tar.zst
+          if-no-files-found: error
+
+  make-repo:
+    runs-on: ubuntu-24.04
+    needs: [build-kernel]
+    container:
+      image: archlinux:base-devel
+      volumes:
+        - /usr:/usr-host
+        - /opt:/opt-host
+      options: --privileged
+    steps:
+
+      - name: Maximize build space
+        run: |
+          df -h
+          rm -rf /usr-host/share/dotnet
+          rm -rf /usr-host/share/swift
+          rm -rf /usr-host/share/java
+          rm -rf /usr-host/local/lib/android
+          rm -rf /opt-host/ghc
+          rm -rf /opt-host/hostedtoolcache
+          rm -rf /opt-host/az
+          df -h
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-fsync-package
+          path: ${{ env.PKGDEST }}
+
+      - name: Prepare container
+        run: |
+
+          pacman -Syuu --noconfirm --disable-download-timeout --needed git wget gnupg
+
+          wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/update-repo.sh -P /__w/lunaos-repo
+          wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/sign.sh -P /__w/lunaos-repo
+
+          # Use all available threads to build a package
+          wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/makepkg.conf -O /etc/makepkg.conf
+
+          yes | pacman -Scc
+          pacman-key --init
+          pacman -S --noconfirm archlinux-keyring
+
+          # Chaotic-AUR repo
+          pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com
+          pacman-key --lsign-key 3056513887B78AEB
+          pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst'
+          pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
+          mkdir -p /etc/gnupg && echo "auto-key-retrieve" >> /etc/gnupg/gpg.conf
+
+          # Enable the multilib repository
+          cat << EOM >> /etc/pacman.conf
+          [multilib]
+          Include = /etc/pacman.d/mirrorlist
+
+          [chaotic-aur]
+          Include = /etc/pacman.d/chaotic-mirrorlist
           EOM
 
           pacman -Sy --noconfirm --disable-download-timeout --needed rate-mirrors yay
@@ -102,17 +191,6 @@ jobs:
           echo "==> Available space after cleanup"
           echo
           df -h
-
-        # Kernel build too long use bin from Nobara copr
-      - name: Build linux-fsync-nobara-bin
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/linux-fsync-nobara-bin.git
-          cd /__w/lunaos-repo/linux-fsync-nobara-bin
-          chown user -R ..
-          sed -i '/^options=(/s/)/ '\''!debug'\'' )/' PKGBUILD
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/linux-fsync-nobara-bin
 
       - name: Build Refresh Mirrors
         run: |
@@ -217,11 +295,6 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/xorg-xwayland
-
-      - name: Download bin packages
-        run: |
-          cd $PKGDEST
-          sh /__w/lunaos-repo/download_bin.sh
 
       - name: Build Gamescope LunaOS
         run: |
@@ -707,7 +780,7 @@ jobs:
           git clone https://aur.archlinux.org/hplip-plugin.git
           cd /__w/lunaos-repo/hplip-plugin
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm --skippgpcheck -sd"
+          su user -c "yes '' | makepkg --noconfirm -sd"
           rm -r /__w/lunaos-repo/hplip-plugin
 
       - name: Build handygccs-git
@@ -1165,15 +1238,37 @@ jobs:
           cd $PKGDEST
           sh /__w/lunaos-repo/update-repo.sh
 
-      - name: Checkout
-        uses: actions/checkout@v3
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
         with:
-          fetch-depth: 0
+          name: lunaos-repo-package
+          path: |
+            ${{ env.PKGDEST }}/*.pkg.tar.zst
+          if-no-files-found: error
 
-      - name: Release all packages to GitHub Releases Mirror
-        uses: marvinpinto/action-automatic-releases@latest
+  make-release:
+    runs-on: ubuntu-24.04
+    needs: [make-repo]
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
         with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          prerelease: false
-          automatic_release_tag: lunaos-repo
-          files: /tmp/lunaos-repo/*
+          name: lunaos-repo-package
+          path: ${{ env.PKGDEST }}
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Make release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: lunaos-repo
+          token: ${{ secrets.GITHUB_TOKEN }}
+          draft: false
+          prerelease: true
+          fail_on_unmatched_files: true
+          make_latest: true
+          files: |
+            ${{ env.PKGDEST }}/*.pkg.tar.zst

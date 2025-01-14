@@ -7,7 +7,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
 
     permissions:
       contents: write
@@ -22,9 +21,9 @@ jobs:
     env:
       PKGDEST: "/tmp/lunaos-repo"
       repo: "lunaos-repo"
-      arch_repo: "x86_64"
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GPG_PASSPHRASE: ${{ secrets.PASSPHRASE }}
+      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
 
     steps:
       - name: Prepare container
@@ -34,7 +33,6 @@ jobs:
 
           wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/update-repo.sh -P /__w/lunaos-repo
           wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/sign.sh -P /__w/lunaos-repo
-          wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/download_bin.sh -P /__w/lunaos-repo
 
           # Use all available threads to build a package
           wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/makepkg.conf -O /etc/makepkg.conf
@@ -43,17 +41,12 @@ jobs:
           pacman-key --init
           pacman -S --noconfirm archlinux-keyring
 
-          # Surface Linux repo
-          curl -s https://raw.githubusercontent.com/linux-surface/linux-surface/master/pkg/keys/surface.asc \
-          | pacman-key --add -
-          pacman-key --finger 56C464BAAC421453
-          pacman-key --lsign-key 56C464BAAC421453
-
           # Chaotic-AUR repo
           pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com
           pacman-key --lsign-key 3056513887B78AEB
           pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst'
           pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
+          mkdir -p /etc/gnupg && echo "auto-key-retrieve" >> /etc/gnupg/gpg.conf
 
           # Enable the multilib repository
           cat << EOM >> /etc/pacman.conf
@@ -62,9 +55,6 @@ jobs:
 
           [chaotic-aur]
           Include = /etc/pacman.d/chaotic-mirrorlist
-
-          [linux-surface]
-          Server = https://pkg.surfacelinux.com/arch/
           EOM
 
           pacman -Sy --noconfirm --disable-download-timeout --needed rate-mirrors yay
@@ -81,10 +71,10 @@ jobs:
           chown user -R ..
 
       - name: Import GPG private key
-        uses: crazy-max/ghaction-import-gpg@v5
+        uses: crazy-max/ghaction-import-gpg@v6
         with:
-          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.PASSPHRASE }}
+          gpg_private_key: ${{ env.GPG_PRIVATE_KEY }}
+          passphrase: ${{ env.GPG_PASSPHRASE }}
           trust_level: 5
 
       - name: Maximize build space
@@ -103,16 +93,14 @@ jobs:
           echo
           df -h
 
-        # Kernel build too long use bin from Nobara copr
-      - name: Build linux-fsync-nobara-bin
+      - name: Build linux-fsync-nobara
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/linux-fsync-nobara-bin.git
-          cd /__w/lunaos-repo/linux-fsync-nobara-bin
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/kernel-fsync-nobara.git
+          cd /__w/lunaos-repo/kernel-fsync-nobara
           chown user -R ..
-          sed -i '/^options=(/s/)/ '\''!debug'\'' )/' PKGBUILD
           su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/linux-fsync-nobara-bin
+          rm -r /__w/lunaos-repo/kernel-fsync-nobara
 
       - name: Build Refresh Mirrors
         run: |
@@ -217,11 +205,6 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/xorg-xwayland
-
-      - name: Download bin packages
-        run: |
-          cd $PKGDEST
-          sh /__w/lunaos-repo/download_bin.sh
 
       - name: Build Gamescope LunaOS
         run: |
@@ -707,7 +690,7 @@ jobs:
           git clone https://aur.archlinux.org/hplip-plugin.git
           cd /__w/lunaos-repo/hplip-plugin
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm --skippgpcheck -sd"
+          su user -c "yes '' | makepkg --noconfirm -sd"
           rm -r /__w/lunaos-repo/hplip-plugin
 
       - name: Build handygccs-git
@@ -1166,14 +1149,14 @@ jobs:
           sh /__w/lunaos-repo/update-repo.sh
 
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Release all packages to GitHub Releases Mirror
+      - name: Make release
         uses: marvinpinto/action-automatic-releases@latest
         with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          repo_token: "${{ env.GITHUB_TOKEN }}"
           prerelease: false
           automatic_release_tag: lunaos-repo
-          files: /tmp/lunaos-repo/*
+          files: ${{ env.PKGDEST }}/*

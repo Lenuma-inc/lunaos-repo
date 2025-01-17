@@ -369,6 +369,42 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/snoop
 
+      - name: Build gpu-screen-recorder
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://aur.archlinux.org/gpu-screen-recorder.git
+          cd /__w/lunaos-repo/gpu-screen-recorder
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -si"
+          rm -r /__w/lunaos-repo/gpu-screen-recorder
+
+      - name: Build gpu-screen-recorder-notification
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://aur.archlinux.org/gpu-screen-recorder-notification.git
+          cd /__w/lunaos-repo/gpu-screen-recorder-notification
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -si"
+          rm -r /__w/lunaos-repo/gpu-screen-recorder-notification
+
+      - name: Build gpu-screen-recorder-ui
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://aur.archlinux.org/gpu-screen-recorder-ui.git
+          cd /__w/lunaos-repo/gpu-screen-recorder-ui
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/gpu-screen-recorder-ui
+
+      - name: Build gpu-screen-recorder-gtk
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://aur.archlinux.org/gpu-screen-recorder-gtk.git
+          cd /__w/lunaos-repo/gpu-screen-recorder-gtk
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/gpu-screen-recorder-gtk
+
       - name: Build ptyxis
         run: |
           cd /__w/lunaos-repo

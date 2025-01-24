@@ -98,20 +98,6 @@ jobs:
           echo
           df -h
 
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Build hhd-ui
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/hhd-ui.git
-          cd /__w/lunaos-repo/hhd-ui
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/hhd-ui
-
       - name: Build linux-fsync-nobara
         run: |
           cd /__w/lunaos-repo
@@ -738,6 +724,15 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/hhd
+          
+      - name: Build Build Handheld Daemon (HHD) UI
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/hhd-ui.git
+          cd /__w/lunaos-repo/hhd-ui
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/hhd-ui
 
       - name: Build Uresourced
         run: |
@@ -985,6 +980,15 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -d"
           rm -r /__w/lunaos-repo/grub-meta
+          
+      - name: Build powerbuttond
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/powerbuttond.git
+          cd /__w/lunaos-repo/powerbuttond
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/powerbuttond
 
       - name: Build LunaOS Gamescope Session
         run: |

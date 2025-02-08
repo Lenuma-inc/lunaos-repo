@@ -98,6 +98,11 @@ jobs:
           echo
           df -h
 
+      - name: Download apple-bcm-firmware
+        run: |
+          cd /__w/lunaos-repo
+          wget https://github.com/NoaHimesaka1873/apple-bcm-firmware/releases/download/v14.0/apple-bcm-firmware-14.0-1-any.pkg.tar.zst
+
       - name: Build linux-fsync-nobara
         run: |
           cd /__w/lunaos-repo

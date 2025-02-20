@@ -977,6 +977,15 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/lunaos-pamac
 
+      - name: Build pamac-tray-icon-plasma
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://aur.archlinux.org/pamac-tray-icon-plasma.git
+          cd /__w/lunaos-repo/pamac-tray-icon-plasma
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/pamac-tray-icon-plasma
+
       - name: Build LunaOS GRUB theme
         run: |
           cd /__w/lunaos-repo
@@ -1242,3 +1251,12 @@ jobs:
           prerelease: false
           automatic_release_tag: lunaos-repo
           files: ${{ env.PKGDEST }}/*
+
+      - name: Release repo to FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ${{ env.PKGDEST }}/
+          server-dir: ${{ secrets.FTP_SERVER }}/public_html/lunaos-repo/

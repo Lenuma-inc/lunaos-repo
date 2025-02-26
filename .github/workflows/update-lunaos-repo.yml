@@ -5,7 +5,25 @@ on:
   workflow_dispatch:
 
 jobs:
+  macOS:
+    runs-on: macos-14
+    steps:
+
+      - name: Rename and tar firmware
+        run: |
+          curl -L https://raw.githubusercontent.com/t2linux/wiki/9314a44971df3d6aff9af96b023181fb3e40ad2b/docs/tools/firmware.sh > firmware.sh
+          python3 firmware.sh /usr/share/firmware ${{ github.workspace }}/firmware.tar -v
+          mkdir firmware
+          mv ./firmware.tar ./firmware
+
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: ${{ github.workspace }}/firmware
+
   build:
+    needs: [macOS]
     runs-on: ubuntu-24.04
 
     permissions:
@@ -107,10 +125,21 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -si"
           rm -r /__w/lunaos-repo/refresh-mirrors
 
-      - name: Download apple-bcm-firmware
+      - name: Download T2 firmware
+        uses: actions/download-artifact@v4
+        with:
+          name: firmware
+          path: /__w/lunaos-repo/
+
+      - name: Build linux-firmware-apple
         run: |
-          cd $PKGDEST
-          wget https://github.com/NoaHimesaka1873/apple-bcm-firmware/releases/download/v14.0/apple-bcm-firmware-14.0-1-any.pkg.tar.zst
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/linux-firmware-apple.git
+          mv -v firmware.tar /__w/lunaos-repo/linux-firmware-apple/
+          cd /__w/lunaos-repo/linux-firmware-apple
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/linux-firmware-apple
 
       - name: Build linux-fsync-nobara
         run: |

@@ -125,6 +125,15 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -si"
           rm -r /__w/lunaos-repo/refresh-mirrors
 
+      - name: Build LightDM Greeter by KDE
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/lightdm-kde-greeter.git
+          cd /__w/lunaos-repo/lightdm-kde-greeter
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/lightdm-kde-greeter
+
       - name: Download T2 firmware
         uses: actions/download-artifact@v4
         with:

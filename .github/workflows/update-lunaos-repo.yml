@@ -453,15 +453,6 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/gpu-screen-recorder-gtk
 
-      - name: Build ptyxis
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/ptyxis.git
-          cd /__w/lunaos-repo/ptyxis
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/ptyxis
-
       - name: Build cassette
         run: |
           cd /__w/lunaos-repo

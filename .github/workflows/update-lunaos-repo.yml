@@ -1265,7 +1265,7 @@ jobs:
           fetch-depth: 0
 
       - name: Make release
-        uses: marvinpinto/action-automatic-releases@latest
+        uses: mathieucarbou/marvinpinto-action-automatic-releases@latest
         with:
           repo_token: "${{ env.GITHUB_TOKEN }}"
           prerelease: false

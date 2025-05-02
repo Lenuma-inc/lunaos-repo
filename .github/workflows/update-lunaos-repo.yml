@@ -390,24 +390,6 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -si"
           rm -r /__w/lunaos-repo/memstrack
 
-      - name: Build lenovolegionlinux-git
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/lenovolegionlinux-git.git
-          cd /__w/lunaos-repo/lenovolegionlinux-git
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -si"
-          rm -r /__w/lunaos-repo/lenovolegionlinux-git
-
-      - name: Build lenovolegionlinux-dkms-git
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/lenovolegionlinux-dkms-git.git
-          cd /__w/lunaos-repo/lenovolegionlinux-dkms-git
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/lenovolegionlinux-dkms-git
-
       - name: Build snoop
         run: |
           cd /__w/lunaos-repo
@@ -1014,15 +996,6 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -d"
           rm -r /__w/lunaos-repo/lunaos-grub-theme
-
-      - name: Build GRUB
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/grub.git
-          cd /__w/lunaos-repo/grub
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/grub
 
       - name: Build GRUB Meta
         run: |

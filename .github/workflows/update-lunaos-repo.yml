@@ -116,6 +116,15 @@ jobs:
           echo
           df -h
 
+       - name: Build bluez with Valve patches
+         run: |
+           cd /__w/lunaos-repo
+           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/bluez.git
+           cd /__w/lunaos-repo/bluez
+           chown user -R ..
+           su user -c "yes '' | makepkg --noconfirm -s"
+           rm -r /__w/lunaos-repo/bluez
+
       - name: Build Refresh Mirrors
         run: |
           cd /__w/lunaos-repo
@@ -1167,15 +1176,6 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/colloid-kvantum-theme
-
-      # - name: Build bluez with Valve patches
-      #   run: |
-      #     cd /__w/lunaos-repo
-      #     git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/bluez.git
-      #     cd /__w/lunaos-repo/bluez
-      #     chown user -R ..
-      #     su user -c "yes '' | makepkg --noconfirm -s"
-      #     rm -r /__w/lunaos-repo/bluez
 
       - name: Build lunaos-bash-config
         run: |

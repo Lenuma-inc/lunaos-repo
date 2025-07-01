@@ -866,6 +866,15 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -sd"
           rm -r /__w/lunaos-repo/nvidia-meta
 
+      - name: Build Nvidia Open meta
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-open-meta.git
+          cd /__w/lunaos-repo/nvidia-open-meta
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -sd"
+          rm -r /__w/lunaos-repo/nvidia-open-meta
+
       - name: Build Nvidia Tweaks
         run: |
           cd /__w/lunaos-repo

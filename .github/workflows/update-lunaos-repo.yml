@@ -795,15 +795,6 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/tiny-dfr
 
-      - name: Build handygccs-git
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/handygccs-git.git
-          cd /__w/lunaos-repo/handygccs-git
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/handygccs-git
-
       - name: Build Nvidia 390xx meta
         run: |
           cd /__w/lunaos-repo
@@ -821,41 +812,6 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -sd"
           rm -r /__w/lunaos-repo/nvidia-470xx-meta
-
-      - name: Install nvidia-535xx-settings build deps
-        run: pacman -Sy --needed --noconfirm git inetutils jansson gtk3 libxv libvdpau libxext
-
-      - name: Build Nvidia 535xx drivers
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/nvidia-535xx-utils.git
-          cd /__w/lunaos-repo/nvidia-535xx-utils
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -si"
-
-          cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/lib32-nvidia-535xx-utils.git
-          cd /__w/lunaos-repo/lib32-nvidia-535xx-utils
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-
-          cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/nvidia-535xx-settings.git
-          cd /__w/lunaos-repo/nvidia-535xx-settings
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-          rm -r /__w/lunaos-repo/nvidia-535xx-settings
-          rm -r /__w/lunaos-repo/lib32-nvidia-535xx-utils
-          rm -r /__w/lunaos-repo/nvidia-535xx-utils
-
-      - name: Build Nvidia 535xx meta
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-535xx-meta.git
-          cd /__w/lunaos-repo/nvidia-535xx-meta
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-          rm -r /__w/lunaos-repo/nvidia-535xx-meta
 
       - name: Build Nvidia meta
         run: |
@@ -982,6 +938,15 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -d"
           rm -r /__w/lunaos-repo/geforcenow-electron-bin
+
+      - name: Build geforce-infinity
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://aur.archlinux.org/geforce-infinity.git
+          cd /__w/lunaos-repo/geforce-infinity
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm"
+          rm -r /__w/lunaos-repo/geforce-infinity
 
       - name: Build pylinuxwheel
         run: |
@@ -1212,15 +1177,6 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -d"
           rm -r /__w/lunaos-repo/lunaos-bash-config
-
-      - name: Build winesync-dkms
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/winesync.git
-          cd /__w/lunaos-repo/winesync
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/winesync
 
       - name: Build Figma
         run: |

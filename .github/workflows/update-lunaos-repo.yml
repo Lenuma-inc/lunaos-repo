@@ -945,7 +945,7 @@ jobs:
           git clone https://aur.archlinux.org/geforce-infinity.git
           cd /__w/lunaos-repo/geforce-infinity
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm"
+          su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/geforce-infinity
 
       - name: Build pylinuxwheel

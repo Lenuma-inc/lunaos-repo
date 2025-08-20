@@ -80,10 +80,7 @@ jobs:
           Include = /etc/pacman.d/chaotic-mirrorlist
           EOM
 
-          pacman -Sy --noconfirm --disable-download-timeout --needed rate-mirrors yay
-
-          rate-mirrors --allow-root arch | tee /etc/pacman.d/mirrorlist
-          rate-mirrors --allow-root chaotic-aur | tee /etc/pacman.d/chaotic-mirrorlist
+          pacman -Sy --noconfirm --disable-download-timeout --needed yay
 
           pacman -Syy
 

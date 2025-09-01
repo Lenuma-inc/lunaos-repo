@@ -1244,7 +1244,7 @@ jobs:
           files: ${{ env.PKGDEST }}/*
 
       - name: Release repo to FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}

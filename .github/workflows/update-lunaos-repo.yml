@@ -176,15 +176,6 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/throne
 
-      - name: Build LightDM Greeter by ALT Linux
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/lightdm-kde-greeter.git
-          cd /__w/lunaos-repo/lightdm-kde-greeter
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/lightdm-kde-greeter
-
       - name: Download T2 firmware
         uses: actions/download-artifact@v5
         with:
@@ -200,6 +191,24 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/linux-firmware-apple
+
+      - name: Build ewwii
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://aur.archlinux.org/ewwii.git
+          cd /__w/lunaos-repo/ewwii
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/ewwii
+
+      - name: Build macbook12-spi-driver-dkms
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://aur.archlinux.org/macbook12-spi-driver-dkms.git
+          cd /__w/lunaos-repo/macbook12-spi-driver-dkms
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/macbook12-spi-driver-dkms
 
       - name: Build linux-fsync-nobara
         run: |

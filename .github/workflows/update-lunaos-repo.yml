@@ -170,7 +170,7 @@ jobs:
       - name: Build throne
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/throne.git
+          git clone --branch throne --single-branch https://github.com/archlinux/aur.git throne
           cd /__w/lunaos-repo/throne
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -381,7 +381,7 @@ jobs:
       - name: Build surface-dtx-daemon-bin
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/surface-dtx-daemon-bin.git
+          git clone --branch surface-dtx-daemon-bin --single-branch https://github.com/archlinux/aur.git surface-dtx-daemon-bin
           cd /__w/lunaos-repo/surface-dtx-daemon-bin
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -390,7 +390,7 @@ jobs:
       - name: Build gnome-randr
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/gnome-randr-rust.git
+          git clone --branch gnome-randr-rust --single-branch https://github.com/archlinux/aur.git gnome-randr-rust
           cd /__w/lunaos-repo/gnome-randr-rust
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -399,7 +399,7 @@ jobs:
       - name: Build memstrack
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/memstrack.git
+          git clone --branch memstrack --single-branch https://github.com/archlinux/aur.git memstrack
           cd /__w/lunaos-repo/memstrack
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -si"
@@ -408,7 +408,7 @@ jobs:
       - name: Build snoop
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/snoop.git
+          git clone --branch snoop --single-branch https://github.com/archlinux/aur.git snoop
           cd /__w/lunaos-repo/snoop
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -417,7 +417,7 @@ jobs:
       - name: Build gpu-screen-recorder
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/gpu-screen-recorder.git
+          git clone --branch gpu-screen-recorder --single-branch https://github.com/archlinux/aur.git gpu-screen-recorder
           cd /__w/lunaos-repo/gpu-screen-recorder
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -si"
@@ -426,7 +426,7 @@ jobs:
       - name: Build gpu-screen-recorder-notification
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/gpu-screen-recorder-notification.git
+          git clone --branch gpu-screen-recorder-notification --single-branch https://github.com/archlinux/aur.git gpu-screen-recorder-notification
           cd /__w/lunaos-repo/gpu-screen-recorder-notification
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -si"
@@ -435,7 +435,7 @@ jobs:
       - name: Build gpu-screen-recorder-ui
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/gpu-screen-recorder-ui.git
+          git clone --branch gpu-screen-recorder-ui --single-branch https://github.com/archlinux/aur.git gpu-screen-recorder-ui
           cd /__w/lunaos-repo/gpu-screen-recorder-ui
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -444,7 +444,7 @@ jobs:
       - name: Build gpu-screen-recorder-gtk
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/gpu-screen-recorder-gtk.git
+          git clone --branch gpu-screen-recorder-gtk --single-branch https://github.com/archlinux/aur.git gpu-screen-recorder-gtk
           cd /__w/lunaos-repo/gpu-screen-recorder-gtk
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -453,7 +453,7 @@ jobs:
       - name: Build cassette
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/cassette.git
+          git clone --branch cassette --single-branch https://github.com/archlinux/aur.git cassette
           cd /__w/lunaos-repo/cassette
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -462,7 +462,7 @@ jobs:
       - name: Build gapless
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/gapless.git
+          git clone --branch gapless --single-branch https://github.com/archlinux/aur.git gapless
           cd /__w/lunaos-repo/gapless
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -588,7 +588,7 @@ jobs:
       - name: Build Nautilus Admin Extension
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/nautilus-admin-gtk4.git
+          git clone --branch nautilus-admin-gtk4 --single-branch https://github.com/archlinux/aur.git nautilus-admin-gtk4
           cd /__w/lunaos-repo/nautilus-admin-gtk4
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -597,7 +597,7 @@ jobs:
       - name: Build Nautilus Copy Path Extension
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/nautilus-copy-path.git
+          git clone --branch nautilus-copy-path --single-branch https://github.com/archlinux/aur.git nautilus-copy-path
           cd /__w/lunaos-repo/nautilus-copy-path
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -750,7 +750,7 @@ jobs:
       - name: Build Build Handheld Daemon (HHD) UI
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/hhd-ui.git
+          git clone --branch hhd-ui --single-branch https://github.com/archlinux/aur.git hhd-ui
           cd /__w/lunaos-repo/hhd-ui
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -849,7 +849,7 @@ jobs:
       - name: Build Nouveau Reclocking
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/nouveau-reclocking.git
+          git clone --branch nouveau-reclocking --single-branch https://github.com/archlinux/aur.git nouveau-reclocking
           cd /__w/lunaos-repo/nouveau-reclocking
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -900,24 +900,6 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -sd"
           rm -r /__w/lunaos-repo/rocm-meta
 
-      - name: Build e1000e-dkms
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/e1000e-dkms.git
-          cd /__w/lunaos-repo/e1000e-dkms
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/e1000e-dkms
-
-      - name: Build 8188eu-dkms
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/8188eu-dkms.git
-          cd /__w/lunaos-repo/8188eu-dkms
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/8188eu-dkms
-
       - name: Build PortProton
         run: |
           cd /__w/lunaos-repo
@@ -927,19 +909,10 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -d"
           rm -r /__w/lunaos-repo/portproton
 
-      - name: Build geforcenow-electron-bin
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/geforcenow-electron-bin.git
-          cd /__w/lunaos-repo/geforcenow-electron-bin
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
-          rm -r /__w/lunaos-repo/geforcenow-electron-bin
-
       - name: Build geforce-infinity
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/geforce-infinity.git
+          git clone --branch geforce-infinity --single-branch https://github.com/archlinux/aur.git geforce-infinity
           cd /__w/lunaos-repo/geforce-infinity
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -980,7 +953,7 @@ jobs:
       - name: Build pamac-tray-icon-plasma
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/pamac-tray-icon-plasma.git
+          git clone --branch pamac-tray-icon-plasma --single-branch https://github.com/archlinux/aur.git pamac-tray-icon-plasma
           cd /__w/lunaos-repo/pamac-tray-icon-plasma
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -1070,7 +1043,7 @@ jobs:
       - name: Build ds-inhibit
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/ds-inhibit.git
+          git clone --branch ds-inhibit --single-branch https://github.com/archlinux/aur.git ds-inhibit
           cd /__w/lunaos-repo/ds-inhibit
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -1079,7 +1052,7 @@ jobs:
       - name: Build ayaneo-platform-dkms-git
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/ayaneo-platform-dkms-git.git
+          git clone --branch ayaneo-platform-dkms-git --single-branch https://github.com/archlinux/aur.git ayaneo-platform-dkms-git
           cd /__w/lunaos-repo/ayaneo-platform-dkms-git
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -1088,7 +1061,7 @@ jobs:
       - name: Build ayn-platform-dkms-git
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/ayn-platform-dkms-git.git
+          git clone --branch ayn-platform-dkms-git --single-branch https://github.com/archlinux/aur.git ayn-platform-dkms-git
           cd /__w/lunaos-repo/ayn-platform-dkms-git
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -1097,7 +1070,7 @@ jobs:
       - name: Build hid-msi-claw-dkms-git
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/hid-msi-claw-dkms-git.git
+          git clone --branch hid-msi-claw-dkms-git --single-branch https://github.com/archlinux/aur.git hid-msi-claw-dkms-git
           cd /__w/lunaos-repo/hid-msi-claw-dkms-git
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -1106,7 +1079,7 @@ jobs:
       - name: Build gpd-fan-driver-dkms-git
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/gpd-fan-driver-dkms-git.git
+          git clone --branch gpd-fan-driver-dkms-git --single-branch https://github.com/archlinux/aur.git gpd-fan-driver-dkms-git
           cd /__w/lunaos-repo/gpd-fan-driver-dkms-git
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -1142,7 +1115,7 @@ jobs:
       - name: Build Kvantm LibAdwaita theme
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/kvantum-theme-libadwaita-git.git
+          git clone --branch kvantum-theme-libadwaita-git --single-branch https://github.com/archlinux/aur.git kvantum-theme-libadwaita-git
           cd /__w/lunaos-repo/kvantum-theme-libadwaita-git
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -1160,7 +1133,7 @@ jobs:
       - name: Build Rewaita
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/rewaita.git
+          git clone --branch rewaita --single-branch https://github.com/archlinux/aur.git rewaita
           cd /__w/lunaos-repo/rewaita
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -1178,7 +1151,7 @@ jobs:
       - name: Build Figma
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/figma-linux-bin.git
+          git clone --branch figma-linux-bin --single-branch https://github.com/archlinux/aur.git figma-linux-bin
           cd /__w/lunaos-repo/figma-linux-bin
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -1187,7 +1160,7 @@ jobs:
       - name: Build galaxybudsclient-bin
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/galaxybudsclient-bin.git
+          git clone --branch galaxybudsclient-bin --single-branch https://github.com/archlinux/aur.git galaxybudsclient-bin
           cd /__w/lunaos-repo/galaxybudsclient-bin
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -1196,7 +1169,7 @@ jobs:
       - name: Build asusctl
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/asusctl.git
+          git clone --branch asusctl --single-branch https://github.com/archlinux/aur.git asusctl
           cd /__w/lunaos-repo/asusctl
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
@@ -1205,7 +1178,7 @@ jobs:
       - name: Build asusctltray-git
         run: |
           cd /__w/lunaos-repo
-          git clone https://aur.archlinux.org/asusctltray-git.git
+          git clone --branch asusctltray-git --single-branch https://github.com/archlinux/aur.git asusctltray-git
           cd /__w/lunaos-repo/asusctltray-git
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -d"

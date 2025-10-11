@@ -1,8 +1,13 @@
 name: LunaOS Repo Update
+
 on:
   schedule:
     - cron: "17 */12 * * *" # “At minute 17 past every 12th hour.”
   workflow_dispatch:
+
+concurrency:
+  group: lunaos-repo-update
+  cancel-in-progress: false
 
 jobs:
   macOS:
@@ -46,7 +51,6 @@ jobs:
     steps:
       - name: Prepare container
         run: |
-
           pacman -Syuu --noconfirm --disable-download-timeout --needed git wget gnupg lftp
 
           wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/update-repo.sh -P /__w/lunaos-repo

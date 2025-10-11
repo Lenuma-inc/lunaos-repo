@@ -1211,33 +1211,33 @@ jobs:
           automatic_release_tag: lunaos-repo
           files: ${{ env.PKGDEST }}/*
 
-    - name: Clean up remote FTP directory
-      env:
-        FTP_SERVER: ${{ secrets.FTP_SERVER }}
-        FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-        FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
-        SERVER_DIR: ${{ secrets.FTP_SERVER }}/public_html/lunaos-repo/
-      run: |
-        mkdir -p empty_dir
-        lftp -u $FTP_USERNAME,$FTP_PASSWORD $FTP_SERVER <<EOF
-        set ftp:ssl-allow no
-        set cmd:fail-exit yes
-        mirror --reverse --delete --delete-first --verbose empty_dir/ $SERVER_DIR
-        bye
-        EOF
-        rm -rf empty_dir
+      - name: Clean up remote FTP directory
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          SERVER_DIR: ${{ secrets.FTP_SERVER }}/public_html/lunaos-repo/
+        run: |
+          mkdir -p empty_dir
+          lftp -u $FTP_USERNAME,$FTP_PASSWORD $FTP_SERVER <<EOF
+          set ftp:ssl-allow no
+          set cmd:fail-exit yes
+          mirror --reverse --delete --delete-first --verbose empty_dir/ $SERVER_DIR
+          bye
+          EOF
+          rm -rf empty_dir
 
-    - name: Upload repo to FTP using lftp
-      env:
-        FTP_SERVER: ${{ secrets.FTP_SERVER }}
-        FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-        FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
-        LOCAL_DIR: ${{ env.PKGDEST }}/
-        SERVER_DIR: ${{ secrets.FTP_SERVER }}/public_html/lunaos-repo/
-      run: |
-        lftp -c "
-        set ftp:ssl-allow no
-        open -u $FTP_USERNAME,$FTP_PASSWORD $FTP_SERVER
-        mirror --reverse --verbose $LOCAL_DIR $SERVER_DIR
-        bye
-        "
+      - name: Upload repo to FTP using lftp
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          LOCAL_DIR: ${{ env.PKGDEST }}/
+          SERVER_DIR: ${{ secrets.FTP_SERVER }}/public_html/lunaos-repo/
+        run: |
+          lftp -c "
+          set ftp:ssl-allow no
+          open -u $FTP_USERNAME,$FTP_PASSWORD $FTP_SERVER
+          mirror --reverse --verbose $LOCAL_DIR $SERVER_DIR
+          bye
+          "

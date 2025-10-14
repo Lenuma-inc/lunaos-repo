@@ -84,8 +84,6 @@ jobs:
           Include = /etc/pacman.d/chaotic-mirrorlist
           EOM
 
-          pacman -Sy --noconfirm --disable-download-timeout --needed yay
-
           pacman -Syy
 
           useradd -m user -G wheel && echo "user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
@@ -1210,12 +1208,3 @@ jobs:
           prerelease: false
           automatic_release_tag: lunaos-repo
           files: ${{ env.PKGDEST }}/*
-
-      - name: Release repo to FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ${{ env.PKGDEST }}/
-          server-dir: ${{ secrets.FTP_SERVER }}/public_html/lunaos-repo/

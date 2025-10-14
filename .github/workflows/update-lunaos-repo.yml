@@ -1,7 +1,7 @@
 name: LunaOS Repo Update
 on:
   schedule:
-    - cron: "17 */12 * * *" # “At minute 17 past every 12th hour.”
+    - cron: "0 0 * * *" # “Every day at midnight.”
   workflow_dispatch:
 
 concurrency:
@@ -51,7 +51,7 @@ jobs:
       - name: Prepare container
         run: |
 
-          pacman -Syuu --noconfirm --disable-download-timeout --needed git wget gnupg
+          pacman -Syuu --noconfirm --disable-download-timeout --needed git wget gnupg lftp
 
           wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/update-repo.sh -P /__w/lunaos-repo
           wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/sign.sh -P /__w/lunaos-repo
@@ -1208,3 +1208,38 @@ jobs:
           prerelease: false
           automatic_release_tag: lunaos-repo
           files: ${{ env.PKGDEST }}/*
+
+      - name: Clean up S3 directory
+        env:
+          FTP_SERVER: ftp.ru1.storage.beget.cloud
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          SERVER_DIR: ${{ secrets.S3_BUCKET_NAME }}/lunaos-repo/
+        run: |
+          mkdir -p empty_dir
+          lftp -u $FTP_USERNAME,$FTP_PASSWORD $FTP_SERVER <<EOF
+          set cmd:fail-exit yes
+          set ftp:ssl-force yes
+          set mirror:set-permissions false
+          set ssl:check-hostname no
+          mirror --reverse --delete --delete-first --verbose empty_dir/ $SERVER_DIR
+          bye
+          EOF
+          rm -rf empty_dir
+
+      - name: Upload repo to S3
+        env:
+          FTP_SERVER: ftp.ru1.storage.beget.cloud
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          LOCAL_DIR: ${{ env.PKGDEST }}/
+          SERVER_DIR: ${{ secrets.S3_BUCKET_NAME }}/lunaos-repo/
+        run: |
+          lftp -c "
+          set cmd:fail-exit yes
+          set ftp:ssl-force yes
+          set ssl:check-hostname no
+          set mirror:set-permissions false
+          open -u $FTP_USERNAME,$FTP_PASSWORD $FTP_SERVER
+          mirror --reverse --parallel=4 --dereference --verbose $LOCAL_DIR $SERVER_DIR
+          "

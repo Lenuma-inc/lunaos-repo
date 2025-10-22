@@ -1,0 +1,48 @@
+name: Arch Linux Mirror Sync
+
+on:
+  schedule:
+    - cron: "17 */12 * * *" # “At minute 17 past every 12th hour.”
+  workflow_dispatch:
+
+concurrency:
+  group: archlinux-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    container:
+      image: archlinux:base-devel
+      volumes:
+        - /usr:/usr-host
+        - /opt:/opt-host
+      options: --privileged
+
+    env:
+      BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare Arch Linux container
+        run: |
+          pacman -Syuu --noconfirm --disable-download-timeout --needed \
+            curl lftp wget
+          pacman-key --init
+          pacman -S --noconfirm archlinux-keyring || true
+          yes | pacman -Scc
+          useradd -m user -G wheel && echo "user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+          chown user -R /tmp
+          chown user -R ..
+
+      - name: Run Arch Linux mirror sync
+        run: |
+          chmod +x ./sync-archlinux.sh
+          ./sync-archlinux.sh

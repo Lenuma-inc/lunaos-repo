@@ -1,0 +1,79 @@
+name: Arch Linux Mirror Sync
+
+on:
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    container:
+      image: archlinux:base-devel
+      volumes:
+        - /usr:/usr-host
+        - /opt:/opt-host
+      options: --privileged
+
+    env:
+      RCLONE_REMOTE: Beget
+      BEGET_BUCKET: ${{ secrets.S3_BUCKET_NAME }}
+      ACCESS_KEY_ID: ${{ secrets.FTP_USERNAME }}
+      SECRET_ACCESS_KEY: ${{ secrets.FTP_PASSWORD }}
+      RCLONE_CONFIG: ${{ github.workspace }}/.rclone.conf
+      PKGDEST: "/tmp/archlinux-mirror"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare Arch Linux container
+        run: |
+          pacman -Syuu --noconfirm --disable-download-timeout --needed \
+            rclone rsync jq wget git
+          pacman-key --init
+          pacman -S --noconfirm archlinux-keyring || true
+          yes | pacman -Scc
+          git config --global user.email "ci@github.actions"
+          git config --global user.name "GitHub Actions"
+          useradd -m user -G wheel && echo "user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+          chown user -R /tmp
+          chown user -R ..
+
+      - name: Configure Rclone (write config to RCLONE_CONFIG)
+        run: |
+          mkdir -p "$(dirname "${RCLONE_CONFIG}")"
+          cat > "${RCLONE_CONFIG}" <<EOF
+          [${RCLONE_REMOTE}]
+          type = s3
+          provider = Other
+          access_key_id = ${ACCESS_KEY_ID}
+          secret_access_key = ${SECRET_ACCESS_KEY}
+          region = ru1
+          endpoint = https://s3.ru1.storage.beget.cloud
+          acl = private
+          EOF
+          echo "✅ Rclone configuration created at ${RCLONE_CONFIG}"
+
+      - name: Verify Beget S3 connection
+        run: |
+          rclone --config "${RCLONE_CONFIG}" lsd ${RCLONE_REMOTE}: || {
+            echo "❌ Failed to connect to Beget S3 (check secrets and endpoint)"
+            exit 1
+          }
+
+      - name: Run Arch Linux mirror sync
+        env:
+          RCLONE_CONFIG: ${{ env.RCLONE_CONFIG }}
+          RCLONE_REMOTE: ${{ env.RCLONE_REMOTE }}
+          BEGET_BUCKET: ${{ env.BEGET_BUCKET }}
+          ACCESS_KEY_ID: ${{ env.ACCESS_KEY_ID }}
+          SECRET_ACCESS_KEY: ${{ env.SECRET_ACCESS_KEY }}
+        run: |
+          chmod +x ./sync-archlinux.sh
+          ./sync-archlinux.sh
+
+      - name: Post-sync cleanup
+        run: |
+          echo "✅ Mirror synchronization finished successfully."

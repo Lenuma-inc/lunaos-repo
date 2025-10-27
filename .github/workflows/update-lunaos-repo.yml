@@ -197,7 +197,7 @@ jobs:
           rm -r /__w/lunaos-repo/throne
 
       - name: Download T2 firmware
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v6
         with:
           name: firmware
           path: /__w/lunaos-repo/

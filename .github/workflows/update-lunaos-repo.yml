@@ -167,7 +167,7 @@ jobs:
           cd /__w/lunaos-repo/pacman-mirrorlist
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/grub
+          rm -r /__w/lunaos-repo/pacman-mirrorlist
 
       - name: Build dracut without hooks
         run: |

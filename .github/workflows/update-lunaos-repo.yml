@@ -569,6 +569,15 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -sd"
           rm -r /__w/lunaos-repo/lunaos-settings-handheld
 
+      - name: Build LunaOS Mac T2 Settings
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-settings-t2.git
+          cd /__w/lunaos-repo/lunaos-settings-t2
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -sd"
+          rm -r /__w/lunaos-repo/lunaos-settings-t2
+
       - name: Build LunaOS Zram Defaults
         run: |
           cd /__w/lunaos-repo
@@ -812,15 +821,6 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/tiny-dfr
 
-      - name: Build Nvidia 390xx meta
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-390xx-meta.git
-          cd /__w/lunaos-repo/nvidia-390xx-meta
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-          rm -r /__w/lunaos-repo/nvidia-390xx-meta
-
       - name: Build Nvidia 470xx meta
         run: |
           cd /__w/lunaos-repo
@@ -856,6 +856,15 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -sd"
           rm -r /__w/lunaos-repo/nvidia-tweaks
+
+      - name: Build Nouveau Tweaks
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nouveau-tweaks.git
+          cd /__w/lunaos-repo/nouveau-tweaks
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -sd"
+          rm -r /__w/lunaos-repo/nouveau-tweaks
 
       - name: Build Nvidia modules for ISO
         run: |

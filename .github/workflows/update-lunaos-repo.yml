@@ -416,6 +416,15 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/gnome-randr-rust
 
+      - name: Build greetd-dms-greeter-git
+        run: |
+          cd /__w/lunaos-repo
+          git clone --branch greetd-dms-greeter-git --single-branch https://github.com/archlinux/aur.git greetd-dms-greeter-git
+          cd /__w/lunaos-repo/greetd-dms-greeter-git
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/greetd-dms-greeter-git
+
       - name: Build dms-shell
         run: |
           cd /__w/lunaos-repo
@@ -775,6 +784,15 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -sd"
           rm -r /__w/lunaos-repo/lunaos-plasma-settings
+
+      - name: Build LunaOS Hyprland Settings
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/lunaos-hyprland-settings.git
+          cd /__w/lunaos-repo/lunaos-hyprland-settings
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -sd"
+          rm -r /__w/lunaos-repo/lunaos-hyprland-settings
 
       - name: Build Handheld Daemon (HHD)
         run: |

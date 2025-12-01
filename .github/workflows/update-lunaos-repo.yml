@@ -298,6 +298,26 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -d"
           rm -r /__w/lunaos-repo/steam
 
+      - name: Build steamos-networking-tools
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/steamos-networking-tools.git
+          cd /__w/lunaos-repo/steamos-networking-tools
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -si"
+          rm -r /__w/lunaos-repo/steamos-networking-tools
+
+
+      - name: Build steamos-manager
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/steamos-manager.git
+          cd /__w/lunaos-repo/steamos-manager
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -s"
+          rm -r /__w/lunaos-repo/steamos-manager
+
+
       - name: Build xorg-xwayland
         run: |
           cd /__w/lunaos-repo

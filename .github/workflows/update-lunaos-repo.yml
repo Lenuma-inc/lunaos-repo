@@ -906,7 +906,7 @@ jobs:
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-580xx-utils.git
           cd /__w/lunaos-repo/nvidia-580xx-utils
           chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -si"
+          su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/nvidia-580xx-utils
 
       - name: Build lib32 Nvidia 580xx utils

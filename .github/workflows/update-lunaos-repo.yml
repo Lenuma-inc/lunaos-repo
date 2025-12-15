@@ -287,15 +287,6 @@ jobs:
           pacman -Q pacman
           pacman -Ql pacman | grep -i libalpm.so
 
-      - name: Build pacman-contrib
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/pacman-contrib.git
-          cd /__w/lunaos-repo/pacman-contrib
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -si"
-          rm -r /__w/lunaos-repo/pacman-contrib
-
       - name: Build joystickwake
         run: |
           cd /__w/lunaos-repo
@@ -923,7 +914,7 @@ jobs:
           cd /__w/lunaos-repo
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-580xx-settings.git
           cd /__w/lunaos-repo/nvidia-580xx-settings
-          sudo pacman -S --noconfirm jansson gtk3 libxv libvdpau libxext vulkan-headers
+          sudo pacman -S --noconfirm --needed jansson gtk3 libxv libvdpau libxext vulkan-headers
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -d"
           rm -r /__w/lunaos-repo/nvidia-580xx-settings

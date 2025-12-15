@@ -932,7 +932,7 @@ jobs:
         run: |
           cd /__w/lunaos-repo
           git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-580xx-meta.git
-          cd /__w/lunaos-repo/nvidia-nvidia-580xx-meta
+          cd /__w/lunaos-repo/nvidia-580xx-meta
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -d"
           rm -r /__w/lunaos-repo/nvidia-580xx-meta

@@ -1260,7 +1260,7 @@ jobs:
       - name: Build python-fortune
         run: |
           cd /__w/lunaos-repo
-          git clone --branch python-fortune-python --single-branch https://github.com/archlinux/aur.git rewaita
+          git clone --branch python-fortune-python --single-branch https://github.com/archlinux/aur.git python-fortune-python
           cd /__w/lunaos-repo/python-fortune-python
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -si"

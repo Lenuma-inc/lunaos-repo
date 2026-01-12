@@ -287,15 +287,6 @@ jobs:
           pacman -Q pacman
           pacman -Ql pacman | grep -i libalpm.so
 
-      - name: Build joystickwake
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/joystickwake.git
-          cd /__w/lunaos-repo/joystickwake
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -si"
-          rm -r /__w/lunaos-repo/joystickwake
-
       - name: Build pacutils
         run: |
           cd /__w/lunaos-repo

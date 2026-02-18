@@ -157,7 +157,6 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -si"
           rm -r /__w/lunaos-repo/steamos-networking-tools
 
-
       - name: Build steamos-manager
         run: |
           cd /__w/lunaos-repo
@@ -220,15 +219,6 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/dracut
-
-      - name: Build nekoray (MatsuriDayo)
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/nekoray-legacy.git
-          cd /__w/lunaos-repo/nekoray-legacy
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/nekoray-legacy
 
       - name: Build throne-bin
         run: |

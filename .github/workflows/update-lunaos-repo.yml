@@ -999,15 +999,6 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -sd"
           rm -r /__w/lunaos-repo/amd-meta
 
-      - name: Build AMD Vulkan Select
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/amd-vulkan-select.git
-          cd /__w/lunaos-repo/amd-vulkan-select
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-          rm -r /__w/lunaos-repo/amd-vulkan-select
-
       - name: Build ROCM Meta
         run: |
           cd /__w/lunaos-repo

@@ -1047,11 +1047,11 @@ jobs:
       - name: Build PortProtonQt
         run: |
           cd /__w/lunaos-repo
-          git clone --branch geforce-infinity --single-branch https://github.com/archlinux/aur.git portprotonqt
+          git clone --branch portprotonqt --single-branch https://github.com/archlinux/aur.git portprotonqt
           cd /__w/lunaos-repo/portprotonqt
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/portproton
+          rm -r /__w/lunaos-repo/portprotonqt
 
       - name: Build geforce-infinity
         run: |

@@ -143,7 +143,7 @@ jobs:
         run: |
           cd /__w/lunaos-repo
           git clone --branch cpptrace --single-branch https://github.com/archlinux/aur.git cpptrace
-          cd /__w/lunaos-repo/gpu-screen-recorder-gtk
+          cd /__w/lunaos-repo/cpptrace
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -si"
           rm -r /__w/lunaos-repo/cpptrace

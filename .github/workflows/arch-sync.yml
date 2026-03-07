@@ -37,6 +37,8 @@ jobs:
             curl lftp wget
           pacman-key --init
           pacman -S --noconfirm archlinux-keyring || true
+          # Remove broken cache directories before cleaning
+          rm -rf /var/cache/pacman/pkg/download-*
           yes | pacman -Scc
           useradd -m user -G wheel && echo "user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
           chown user -R /tmp

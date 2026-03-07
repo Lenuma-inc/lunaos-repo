@@ -139,6 +139,15 @@ jobs:
           echo
           df -h
 
+      - name: Build cpptrace
+        run: |
+          cd /__w/lunaos-repo
+          git clone --branch cpptrace --single-branch https://github.com/archlinux/aur.git cpptrace
+          cd /__w/lunaos-repo/gpu-screen-recorder-gtk
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -si"
+          rm -r /__w/lunaos-repo/cpptrace
+
       - name: Build quickshell-git
         run: |
           cd /__w/lunaos-repo

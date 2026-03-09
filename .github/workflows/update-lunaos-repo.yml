@@ -1319,6 +1319,15 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -d"
           rm -r /__w/lunaos-repo/lunaos-bash-config
 
+      - name: Build zsh4humans
+        run: |
+          cd /__w/lunaos-repo
+          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/zsh4humans.git
+          cd /__w/lunaos-repo/zsh4humans
+          chown user -R ..
+          su user -c "yes '' | makepkg --noconfirm -d"
+          rm -r /__w/lunaos-repo/zsh4humans
+
       - name: Build Figma
         run: |
           cd /__w/lunaos-repo

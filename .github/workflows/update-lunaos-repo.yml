@@ -1053,15 +1053,6 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -sd"
           rm -r /__w/lunaos-repo/rocm-meta
 
-      - name: Build PortProton
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/portproton.git
-          cd /__w/lunaos-repo/portproton
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
-          rm -r /__w/lunaos-repo/portproton
-
       - name: Build PortProtonQt
         run: |
           cd /__w/lunaos-repo

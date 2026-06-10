@@ -1175,15 +1175,6 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/jupiter-hw-support
 
-      - name: Build vpower
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/vpower.git
-          cd /__w/lunaos-repo/vpower
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/vpower
-
       - name: Build SteamDeck DSP
         run: |
           cd /__w/lunaos-repo

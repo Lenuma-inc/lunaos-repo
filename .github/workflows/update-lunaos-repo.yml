@@ -166,33 +166,6 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/dms-shell
 
-      - name: Build Gamescope LunaOS
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gamescope-lunaos.git
-          cd /__w/lunaos-repo/gamescope-lunaos
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/gamescope-lunaos
-
-      - name: Build steamos-networking-tools
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/steamos-networking-tools.git
-          cd /__w/lunaos-repo/steamos-networking-tools
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -si"
-          rm -r /__w/lunaos-repo/steamos-networking-tools
-
-      - name: Build steamos-manager
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/steamos-manager.git
-          cd /__w/lunaos-repo/steamos-manager
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/steamos-manager
-
       - name: Build gnome-control-center
         run: |
           cd /__w/lunaos-repo
@@ -863,24 +836,6 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -sd"
           rm -r /__w/lunaos-repo/lunaos-hyprland-settings
 
-      - name: Build Handheld Daemon (HHD)
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/hhd.git
-          cd /__w/lunaos-repo/hhd
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/hhd
-          
-      - name: Build Build Handheld Daemon (HHD) UI
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch hhd-ui --single-branch https://github.com/archlinux/aur.git hhd-ui
-          cd /__w/lunaos-repo/hhd-ui
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/hhd-ui
-
       - name: Build Uresourced
         run: |
           cd /__w/lunaos-repo
@@ -1129,33 +1084,6 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -d"
           rm -r /__w/lunaos-repo/grub-meta
-          
-      - name: Build powerbuttond
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/powerbuttond.git
-          cd /__w/lunaos-repo/powerbuttond
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/powerbuttond
-
-      - name: Build LunaOS Gamescope Session
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gamescope-session.git
-          cd /__w/lunaos-repo/gamescope-session
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
-          rm -r /__w/lunaos-repo/gamescope-session
-
-      - name: Build LunaOS Gamescope Session Steam
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gamescope-session-steam.git
-          cd /__w/lunaos-repo/gamescope-session-steam
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
-          rm -r /__w/lunaos-repo/gamescope-session-steam
 
       - name: Build Jupiter Fan Control
         run: |
@@ -1183,51 +1111,6 @@ jobs:
           chown user -R ..
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/steamdeck-dsp
-
-      - name: Build ds-inhibit
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch ds-inhibit --single-branch https://github.com/archlinux/aur.git ds-inhibit
-          cd /__w/lunaos-repo/ds-inhibit
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/ds-inhibit
-
-      - name: Build ayaneo-platform-dkms-git
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch ayaneo-platform-dkms-git --single-branch https://github.com/archlinux/aur.git ayaneo-platform-dkms-git
-          cd /__w/lunaos-repo/ayaneo-platform-dkms-git
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/ayaneo-platform-dkms-git
-
-      - name: Build ayn-platform-dkms-git
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch ayn-platform-dkms-git --single-branch https://github.com/archlinux/aur.git ayn-platform-dkms-git
-          cd /__w/lunaos-repo/ayn-platform-dkms-git
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/ayn-platform-dkms-git
-
-      - name: Build hid-msi-claw-dkms-git
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch hid-msi-claw-dkms-git --single-branch https://github.com/archlinux/aur.git hid-msi-claw-dkms-git
-          cd /__w/lunaos-repo/hid-msi-claw-dkms-git
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/hid-msi-claw-dkms-git
-
-      - name: Build gpd-fan-driver-dkms-git
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch gpd-fan-driver-dkms-git --single-branch https://github.com/archlinux/aur.git gpd-fan-driver-dkms-git
-          cd /__w/lunaos-repo/gpd-fan-driver-dkms-git
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/gpd-fan-driver-dkms-git
 
       - name: Build SteamDeck DKMS
         run: |

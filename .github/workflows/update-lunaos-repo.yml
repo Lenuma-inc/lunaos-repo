@@ -1017,15 +1017,6 @@ jobs:
           su user -c "yes '' | makepkg --noconfirm -s"
           rm -r /__w/lunaos-repo/portprotonqt
 
-      - name: Build geforce-infinity
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch geforce-infinity --single-branch https://github.com/archlinux/aur.git geforce-infinity
-          cd /__w/lunaos-repo/geforce-infinity
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/geforce-infinity
-
       - name: Build pylinuxwheel
         run: |
           cd /__w/lunaos-repo

@@ -1,0 +1,38 @@
+name: Buildbot regression tests
+
+on:
+  pull_request:
+  push:
+    paths:
+      - '*.py'
+      - '*.sh'
+      - 'tests/**'
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Test build planning, failure recovery, logging and publication
+        run: python3 -m unittest discover -s tests -v
+      - name: Check shell syntax
+        run: bash -n sign.sh update-repo.sh prepare-container.sh publish-repo.sh upload-repo.sh
+
+  arch-integration:
+    runs-on: ubuntu-24.04
+    container: archlinux:base-devel
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Prepare unprivileged fixture builder
+        run: |
+          pacman -Syu --noconfirm --needed python gnupg lftp
+          useradd -m tester
+          chown -R tester:tester "$GITHUB_WORKSPACE"
+      - name: Build real packages and verify signed repository databases
+        run: runuser -u tester -- python3 -m unittest discover -s tests -p test_repository.py -v

@@ -58,8 +58,9 @@ def clone(row):
         args += ["--branch", row["ref"], "--single-branch"]
     args += [row["url"], str(path)]
     run(args)
+    revision = run(["git", "rev-parse", "HEAD"], cwd=path)
     run(["chown", "-R", "user:user", str(path)])
-    return path, run(["git", "rev-parse", "HEAD"], cwd=path)
+    return path, revision
 
 
 def srcinfo(path):

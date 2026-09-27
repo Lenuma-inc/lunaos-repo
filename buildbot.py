@@ -12,6 +12,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+sys.stdout.reconfigure(line_buffering=True)
+
 ROOT = Path(__file__).resolve().parent
 WORK = Path(os.environ.get("BUILDBOT_WORK", "/tmp/lunaos-buildbot"))
 PKGDEST = Path(os.environ.get("PKGDEST", "/tmp/lunaos-repo"))
@@ -91,16 +93,21 @@ def package_info(path):
 
 
 def graph(packages, metadata):
-    provider = {name: name for name in packages}
+    names, provides = {}, {}
     for directory, info in metadata.items():
-        for name in info.get("names", []) + info.get("provides", []):
-            provider[name] = directory
+        for name in info.get("names", []):
+            names.setdefault(name, set()).add(directory)
+        for name in info.get("provides", []):
+            provides.setdefault(name, set()).add(directory)
     dependencies = {directory: set() for directory in packages}
     dependents = {directory: set() for directory in packages}
     for directory, info in metadata.items():
         for name in info.get("deps", []):
-            dependency = provider.get(name)
-            if dependency and dependency != directory:
+            # The build image already supplies this group; depending on its meta-package can create bootstrap cycles.
+            if name == "base-devel":
+                continue
+            providers = names.get(name) or provides.get(name, set())
+            if len(providers) == 1 and (dependency := next(iter(providers))) != directory:
                 dependencies[directory].add(dependency)
                 dependents[dependency].add(directory)
     return dependencies, dependents
@@ -223,7 +230,8 @@ def order(selected, dependencies):
     while remaining:
         ready = sorted(p for p in remaining if not (dependencies[p] & remaining))
         if not ready:
-            raise RuntimeError("dependency cycle: " + ", ".join(sorted(remaining)))
+            edges = [f"{package} -> {', '.join(sorted(dependencies[package] & remaining))}" for package in sorted(remaining) if dependencies[package] & remaining]
+            raise RuntimeError("dependency cycle:\n  " + "\n  ".join(edges))
         result.extend(ready)
         remaining.difference_update(ready)
     return result
@@ -244,16 +252,22 @@ def main():
     sources = dict(old.get("sources", {}))
     previous = dict(old.get("packages", {}))
     refs, changed, results = {}, set(), {}
+    print(f"[buildbot] checking sources for {len(packages)} packages")
 
     for name, row in packages.items():
         try:
+            print(f"[source] checking {name}")
             refs[name] = source_sha(row)
             pending = previous.get(name, {})
             if refs[name] != sources.get(name) and refs[name] != pending.get("pending_source"):
                 changed.add(name)
+                print(f"[source] changed {name}: {refs[name][:12]}")
+            else:
+                print(f"[source] unchanged {name}: {refs[name][:12]}")
         except Exception as exc:
             results[name] = {"status": "source-check-failed", "detail": str(exc)}
             (LOGDIR / f"{name}.log").write_text(f"source check failed: {exc}\n")
+            print(f"::error title=Source check failed::{name}: {exc}")
 
     metadata = {name: previous.get(name, {}).get("metadata", {}) for name in packages}
     full = os.environ.get("BUILDBOT_FULL", "false").lower() == "true" or not all(metadata.values())
@@ -267,15 +281,19 @@ def main():
     revisions = {}
     for name in sorted(inspect):
         try:
+            print(f"[metadata] reading {name}")
             path, revision = clone(packages[name])
             revisions[name] = revision
             metadata[name] = package_info(path)
+            print(f"[metadata] {name}: {len(metadata[name]['names'])} package name(s), {len(metadata[name]['deps'])} dependencies")
         except Exception as exc:
             results[name] = {"status": "source-failed", "detail": str(exc)}
             (LOGDIR / f"{name}.log").write_text(f"source checkout failed: {exc}\n")
             changed.add(name)
+            print(f"::error title=Metadata failed::{name}: {exc}")
 
     dependencies, dependents = graph(packages, metadata)
+    print(f"[graph] {sum(map(len, dependencies.values()))} dependency edges across {len(packages)} packages")
     installed = installed_versions()
     dependency_changes = {}
     for name, info in metadata.items():
@@ -290,24 +308,36 @@ def main():
     for name in packages:
         if name in results and name not in selected:
             selected.add(name)
-    build_order = order(selected, dependencies)
+    print(f"[plan] {len(selected)} packages selected: {', '.join(sorted(selected))}")
+    try:
+        build_order = order(selected, dependencies)
+    except RuntimeError as exc:
+        print(f"::error title=Build plan failed::{exc}")
+        summary = Path(os.environ.get("GITHUB_STEP_SUMMARY", "/dev/null"))
+        with summary.open("a") as f:
+            f.write("## Build plan failed\n\n```text\n" + str(exc) + "\n```\n")
+        raise
+    print(f"[plan] build order: {' → '.join(build_order)}")
     firmware = Path(os.environ.get("FIRMWARE_TARBALL", "/tmp/lunaos-input/firmware.tar"))
     published = published_packages()
     check_arch_updates(packages, published)
 
     for name in build_order:
         if name in results and results[name]["status"] in {"source-failed", "source-check-failed"}:
+            print(f"[skip] {name}: source unavailable")
             continue
         blocked = sorted(dep for dep in dependencies[name] if dep in results and results[dep]["status"] != "built")
         if blocked:
             results[name] = {"status": "blocked", "detail": "failed dependencies: " + ", ".join(blocked)}
             (LOGDIR / f"{name}.log").write_text(results[name]["detail"] + "\n")
+            print(f"[blocked] {name}: failed dependencies: {', '.join(blocked)}")
             continue
         row = packages[name]
         path = WORK / name
         stage = WORK / "packages" / name
         log_path = LOGDIR / f"{name}.log"
         try:
+            print(f"[build] starting {name}")
             if not path.exists():
                 path, revisions[name] = clone(row)
                 metadata[name] = package_info(path)
@@ -367,6 +397,7 @@ def main():
             if row["after"]:
                 run(["bash", "-lc", row["after"]])
             results[name] = {"status": "built", "detail": ", ".join(p.name for p in built)}
+            print(f"[build] succeeded {name}: {results[name]['detail']}")
             sources[name] = revisions.get(name, refs.get(name, ""))
             old_issue = previous.get(name, {}).get("issue")
             previous[name] = {
@@ -381,6 +412,7 @@ def main():
             results[name] = {"status": "failed", "detail": str(exc)}
             with log_path.open("a") as log:
                 log.write(f"\nBuildbot error: {exc}\n")
+            print(f"::error title=Build failed::{name}: {exc}")
             previous[name] = {"metadata": metadata.get(name, {}), "status": "failed"}
 
     for name, result in results.items():

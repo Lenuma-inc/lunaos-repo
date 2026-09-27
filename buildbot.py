@@ -225,13 +225,43 @@ def closure(seeds, dependents):
     return selected
 
 
+def find_cycle(remaining, dependencies):
+    state, stack, positions = {}, [], {}
+
+    def visit(package):
+        state[package] = 1
+        positions[package] = len(stack)
+        stack.append(package)
+        for dependency in sorted(dependencies[package] & remaining):
+            if state.get(dependency) == 1:
+                return stack[positions[dependency]:]
+            if not state.get(dependency):
+                if cycle := visit(dependency):
+                    return cycle
+        stack.pop()
+        positions.pop(package)
+        state[package] = 2
+        return []
+
+    for package in sorted(remaining):
+        if not state.get(package):
+            if cycle := visit(package):
+                return cycle
+    return []
+
+
 def order(selected, dependencies):
     result, remaining = [], set(selected)
+    ordering_dependencies = {package: set(deps) for package, deps in dependencies.items()}
     while remaining:
-        ready = sorted(p for p in remaining if not (dependencies[p] & remaining))
+        ready = sorted(p for p in remaining if not (ordering_dependencies[p] & remaining))
         if not ready:
-            edges = [f"{package} -> {', '.join(sorted(dependencies[package] & remaining))}" for package in sorted(remaining) if dependencies[package] & remaining]
-            raise RuntimeError("dependency cycle:\n  " + "\n  ".join(edges))
+            cycle = find_cycle(remaining, ordering_dependencies)
+            package = min(cycle)
+            dependency = min(ordering_dependencies[package] & set(cycle))
+            ordering_dependencies[package].remove(dependency)
+            print(f"::warning title=Bootstrap dependency cycle::{package} will build using the published {dependency}")
+            continue
         result.extend(ready)
         remaining.difference_update(ready)
     return result

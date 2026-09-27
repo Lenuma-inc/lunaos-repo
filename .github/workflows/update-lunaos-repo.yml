@@ -64,6 +64,7 @@ jobs:
       repo: "lunaos-repo"
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
       GPG_PASSPHRASE: ${{ secrets.PASSPHRASE }}
       GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
       BUILDBOT_FULL: ${{ github.event.inputs.full || 'false' }}

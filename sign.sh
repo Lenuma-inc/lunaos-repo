@@ -1,5 +1,9 @@
-#!/usr/bin/env bash
-for pkg in *.pkg.tar.zst; do
-  echo "Signing package $pkg"
-  gpg --detach-sign --pinentry-mode loopback --passphrase $GPG_PASSPHRASE --passphrase-fd 0 --output $pkg.sig --sign $pkg
+#!/bin/sh
+set -eu
+
+: "${GPG_PASSPHRASE:?set GPG_PASSPHRASE}"
+set -- ./*.pkg.tar.zst
+[ -e "$1" ] || { echo "no packages to sign" >&2; exit 1; }
+for pkg do
+  printf '%s\n' "$GPG_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 --detach-sign --output "$pkg.sig" "$pkg"
 done

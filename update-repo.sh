@@ -1,5 +1,7 @@
 #!/bin/sh
-for pkg in *.pkg.tar.zst; do
-  echo "Adding package $pkg to repository"
-  repo-add --verify --sign $repo.db.tar.gz $pkg
-done
+set -eu
+
+: "${repo:?set repo to the database name}"
+set -- ./*.pkg.tar.zst
+[ -e "$1" ] || { echo "no packages to index" >&2; exit 1; }
+repo-add --verify --sign "$repo.db.tar.gz" "$@"

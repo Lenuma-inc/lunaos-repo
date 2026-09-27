@@ -1,8 +1,30 @@
 name: LunaOS Repo Update
 on:
   schedule:
-    - cron: "0 0 * * *" # “Every day at midnight.”
+    - cron: "11 */2 * * *"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/update-lunaos-repo.yml"
+      - "buildbot.py"
+      - "buildbot_runtime.py"
+      - "prepare-container.sh"
+      - "publish-repo.sh"
+      - "upload-repo.sh"
+      - "packages.tsv"
+      - "makepkg.conf"
+      - "sign.sh"
+      - "update-repo.sh"
   workflow_dispatch:
+    inputs:
+      full:
+        description: Rebuild every package
+        type: boolean
+        default: false
+      packages:
+        description: Comma-separated package directories
+        type: string
+        required: false
 
 concurrency:
   group: lunaos-repo-update
@@ -15,7 +37,7 @@ jobs:
 
       - name: Rename and tar firmware
         run: |
-          curl -L https://raw.githubusercontent.com/t2linux/wiki/9314a44971df3d6aff9af96b023181fb3e40ad2b/docs/tools/firmware.sh > firmware.sh
+          curl --fail --show-error --location --retry 3 https://raw.githubusercontent.com/t2linux/wiki/9314a44971df3d6aff9af96b023181fb3e40ad2b/docs/tools/firmware.sh > firmware.sh
           python3 firmware.sh /usr/share/firmware ${{ github.workspace }}/firmware.tar -v
           mkdir firmware
           mv ./firmware.tar ./firmware
@@ -29,9 +51,15 @@ jobs:
   build:
     needs: [macOS]
     runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    defaults:
+      run:
+        shell: bash --noprofile --norc -e -o pipefail {0}
 
     permissions:
       contents: write
+      actions: write
+      issues: write
 
     container:
       image: archlinux:base-devel
@@ -44,83 +72,45 @@ jobs:
       PKGDEST: "/tmp/lunaos-repo"
       repo: "lunaos-repo"
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      GPG_PASSPHRASE: ${{ secrets.PASSPHRASE }}
-      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      PYTHONUNBUFFERED: "1"
+      BUILDBOT_COMMAND_TIMEOUT: "600"
+      BUILDBOT_BUILD_TIMEOUT: "7200"
+      BUILDBOT_RUN_TIMEOUT: "14400"
+      BUILDBOT_ISSUES: ${{ vars.BUILDBOT_ISSUES || 'false' }}
+      BUILDBOT_ARCH_ISSUES: ${{ vars.BUILDBOT_ARCH_ISSUES || 'false' }}
+      BUILDBOT_REBUILD_DEPS: ${{ vars.BUILDBOT_REBUILD_DEPS || 'python' }}
+      BUILDBOT_FULL: ${{ github.event.inputs.full || 'false' }}
+      BUILDBOT_PACKAGES: ${{ github.event.inputs.packages || '' }}
+      BUILDBOT_STATE: ${{ github.workspace }}/.build-state/state.json
+      BUILDBOT_LOGDIR: ${{ github.workspace }}/build-logs
 
     steps:
-      - name: Prepare container
+      - name: Checkout buildbot
+        uses: actions/checkout@v7
+
+      - name: Initialize diagnostics
         run: |
+          mkdir -p "$BUILDBOT_LOGDIR"
+          { date -u; uname -a; df -h; free -h; } | tee "$BUILDBOT_LOGDIR/environment.log"
 
-          pacman -Syuu --noconfirm --disable-download-timeout --needed git wget gnupg lftp
+      - name: Restore package state
+        uses: actions/cache/restore@v5
+        with:
+          path: .build-state
+          key: lunaos-package-state-v2-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: lunaos-package-state-v2-
 
-          wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/update-repo.sh -P /__w/lunaos-repo
-          wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/sign.sh -P /__w/lunaos-repo
-
-          # Use all available threads to build a package
-          wget https://raw.githubusercontent.com/Lenuma-inc/lunaos-repo/main/makepkg.conf -O /etc/makepkg.conf
-
-          yes | pacman -Scc
-          pacman-key --init
-          pacman -S --noconfirm archlinux-keyring
-
-          LUNA_KEYRING_URL=$(curl -s https://api.github.com/repos/lenuma-inc/lunaos-repo/releases/latest \
-            | grep browser_download_url \
-            | grep 'lunaos-keyring' \
-            | grep '.pkg.tar.zst' \
-            | grep -v '.sig' \
-            | cut -d '"' -f 4)
-
-          LUNA_MIRRORLIST_URL=$(curl -s https://api.github.com/repos/lenuma-inc/lunaos-repo/releases/latest \
-            | grep browser_download_url \
-            | grep 'lunaos-mirrorlist' \
-            | grep '.pkg.tar.zst' \
-            | grep -v '.sig' \
-            | cut -d '"' -f 4)
-
-          # Chaotic-AUR and yours repository keys
-          pacman-key --recv-key 3056513887B78AEB 78B2BAAB82C8D511 --keyserver keyserver.ubuntu.com
-          pacman-key --lsign-key 3056513887B78AEB 78B2BAAB82C8D511
-
-          pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst'
-          pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
-
-          pacman -U --noconfirm "$LUNA_KEYRING_URL"
-          pacman -U --noconfirm "$LUNA_MIRRORLIST_URL"
-          pacman-key --populate
-
-          mkdir -p /etc/gnupg && echo "auto-key-retrieve" >> /etc/gnupg/gpg.conf
-
-          # A proper git configuration is required to build some packages.
-          git config --global user.email "you@example.com"
-          git config --global user.name "Your Name"
-
-          # Enable the multilib repository
-          cat << EOM >> /etc/pacman.conf
-          [multilib]
-          Include = /etc/pacman.d/mirrorlist
-
-          [lunaos-repo]
-          Include = /etc/pacman.d/lunaos-mirrorlist
-          SigLevel = Never
-
-          [chaotic-aur]
-          Include = /etc/pacman.d/chaotic-mirrorlist
-          SigLevel = Never
-          EOM
-
-          pacman -Syy
-
-          useradd -m user -G wheel && echo "user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-          echo "PACKAGER=\"LunaOS Team\"" >> /etc/makepkg.conf
-          echo "GPGKEY=\"78B2BAAB82C8D511\"" >> /etc/makepkg.conf
-          chown user -R /tmp
-          chown user -R ..
+      - name: Prepare container
+        timeout-minutes: 30
+        run: bash "$GITHUB_WORKSPACE/prepare-container.sh" 2>&1 | tee "$BUILDBOT_LOGDIR/prepare.log"
 
       - name: Import GPG private key
         uses: crazy-max/ghaction-import-gpg@v7
         with:
-          gpg_private_key: ${{ env.GPG_PRIVATE_KEY }}
-          passphrase: ${{ env.GPG_PASSPHRASE }}
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.PASSPHRASE }}
           trust_level: 5
 
       - name: Maximize build space
@@ -139,1111 +129,68 @@ jobs:
           echo
           df -h
 
-      - name: Build cpptrace
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch cpptrace --single-branch https://github.com/archlinux/aur.git cpptrace
-          cd /__w/lunaos-repo/cpptrace
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -si"
-          rm -r /__w/lunaos-repo/cpptrace
-
-      - name: Build quickshell-git
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/quickshell-git.git
-          cd /__w/lunaos-repo/quickshell-git
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -si"
-          rm -r /__w/lunaos-repo/quickshell-git
-
-      - name: Build dms-shell
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/dms-shell.git
-          cd /__w/lunaos-repo/dms-shell
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/dms-shell
-
-      - name: Build gnome-control-center
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-control-center.git
-          cd /__w/lunaos-repo/gnome-control-center
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/gnome-control-center
-
-      - name: Build bluez with Valve patches
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/bluez.git
-          cd /__w/lunaos-repo/bluez
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/bluez
-
-      - name: Build Refresh Mirrors
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/refresh-mirrors.git
-          cd /__w/lunaos-repo/refresh-mirrors
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -si"
-          rm -r /__w/lunaos-repo/refresh-mirrors
-
-      - name: Build GRUB hooks
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/grub.git
-          cd /__w/lunaos-repo/grub
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/grub
-
-      - name: Build pacman-mirrorlist with cdn.lenuma.ru
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/pacman-mirrorlist.git
-          cd /__w/lunaos-repo/pacman-mirrorlist
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/pacman-mirrorlist
-
-      - name: Build dracut without hooks
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/dracut.git
-          cd /__w/lunaos-repo/dracut
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/dracut
-
-      - name: Build throne-bin
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch throne-bin --single-branch https://github.com/archlinux/aur.git throne-bin
-          cd /__w/lunaos-repo/throne-bin
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/throne-bin
-
-      - name: Download T2 firmware
+      - name: Download T2 firmware artifact
         uses: actions/download-artifact@v8
         with:
           name: firmware
-          path: /__w/lunaos-repo/
-
-      - name: Build linux-firmware-apple
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/linux-firmware-apple.git
-          mv -v firmware.tar /__w/lunaos-repo/linux-firmware-apple/
-          cd /__w/lunaos-repo/linux-firmware-apple
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/linux-firmware-apple
-
-      - name: Build linux-fsync-nobara
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/kernel-fsync-nobara.git
-          cd /__w/lunaos-repo/kernel-fsync-nobara
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/kernel-fsync-nobara
-
-      - name: Build LunaOS Package Manager
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-package-manager.git
-          cd /__w/lunaos-repo/lunaos-package-manager
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -si"
-          rm -r /__w/lunaos-repo/lunaos-package-manager
-
-      - name: Build pacman
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/pacman.git
-          cd /__w/lunaos-repo/pacman
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -si"
-          rm -r /__w/lunaos-repo/pacman
-
-      - name: check libalpm.so and pacman versiom
-        run: |
-          pacman -Q pacman
-          pacman -Ql pacman | grep -i libalpm.so
-
-      - name: Build pacutils
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/pacutils.git
-          cd /__w/lunaos-repo/pacutils
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/pacutils
-
-      - name: Build base-devel
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/base-devel.git
-          cd /__w/lunaos-repo/base-devel
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -si"
-          rm -r /__w/lunaos-repo/base-devel
-
-      - name: Build yay
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/yay
-          cd /__w/lunaos-repo/yay
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/yay
-
-      - name: Build steam
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/steam.git
-          cd /__w/lunaos-repo/steam
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
-          rm -r /__w/lunaos-repo/steam
-
-      - name: Build xorg-xwayland
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/xorg-xwayland.git
-          cd /__w/lunaos-repo/xorg-xwayland
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/xorg-xwayland
-
-      - name: Build find-the-command
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/find-the-command.git
-          cd /__w/lunaos-repo/find-the-command
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/find-the-command
-
-      - name: Build Calamares
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/calamares/calamares.git
-          cd /__w/lunaos-repo/calamares
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm  -s"
-          sudo pacman -Rdd mkinitcpio mkinitcpio-openswap --noconfirm
-          rm -r /__w/lunaos-repo/calamares
-
-      - name: Build LunaOS Calamares Config
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/calamares/lunaos-calamares-config.git
-          cd /__w/lunaos-repo/lunaos-calamares-config
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
-          rm -r /__w/lunaos-repo/lunaos-calamares-config
-
-      - name: Build LunaOS Firefox Settings
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/firefox/lunaos-firefox-settings.git
-          cd /__w/lunaos-repo/lunaos-firefox-settings
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-          rm -r /__w/lunaos-repo/lunaos-firefox-settings
-
-      - name: Build LunaOS Hooks
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-hooks.git
-          cd /__w/lunaos-repo/lunaos-hooks
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -si"
-          rm -r /__w/lunaos-repo/lunaos-hooks
-
-      - name: Build LunaOS Wallpapers
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/lunaos-wallpapers.git
-          cd /__w/lunaos-repo/lunaos-wallpapers
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -si"
-          rm -r /__w/lunaos-repo/lunaos-wallpapers
-
-      - name: Build LunaOS Branding
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-branding.git
-          cd /__w/lunaos-repo/lunaos-branding
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -si"
-          rm -r /__w/lunaos-repo/lunaos-branding
-
-      - name: Build LunaOS Neofetch
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/lunaos-neofetch.git
-          cd /__w/lunaos-repo/lunaos-neofetch
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/lunaos-neofetch
-
-      - name: Build Fastfetch
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/fastfetch.git
-          cd /__w/lunaos-repo/fastfetch
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/fastfetch
-
-      - name: Build LunaOS Plymouth theme
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/lunaos-plymouth-theme.git
-          cd /__w/lunaos-repo/lunaos-plymouth-theme
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -si"
-          rm -r /__w/lunaos-repo/lunaos-plymouth-theme
-
-      - name: Build surface-dtx-daemon-bin
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch surface-dtx-daemon-bin --single-branch https://github.com/archlinux/aur.git surface-dtx-daemon-bin
-          cd /__w/lunaos-repo/surface-dtx-daemon-bin
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/surface-dtx-daemon-bin
-
-      - name: Build gnome-randr
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch gnome-randr-rust --single-branch https://github.com/archlinux/aur.git gnome-randr-rust
-          cd /__w/lunaos-repo/gnome-randr-rust
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/gnome-randr-rust
-
-      - name: Build greetd-dms-greeter-git
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch greetd-dms-greeter-git --single-branch https://github.com/archlinux/aur.git greetd-dms-greeter-git
-          cd /__w/lunaos-repo/greetd-dms-greeter-git
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/greetd-dms-greeter-git
-
-      - name: Build memstrack
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch memstrack --single-branch https://github.com/archlinux/aur.git memstrack
-          cd /__w/lunaos-repo/memstrack
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -si"
-          rm -r /__w/lunaos-repo/memstrack
-
-      - name: Build snoop
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch snoop --single-branch https://github.com/archlinux/aur.git snoop
-          cd /__w/lunaos-repo/snoop
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/snoop
-
-      - name: Build gpu-screen-recorder
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch gpu-screen-recorder --single-branch https://github.com/archlinux/aur.git gpu-screen-recorder
-          cd /__w/lunaos-repo/gpu-screen-recorder
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -si"
-          rm -r /__w/lunaos-repo/gpu-screen-recorder
-
-      - name: Build gpu-screen-recorder-notification
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch gpu-screen-recorder-notification --single-branch https://github.com/archlinux/aur.git gpu-screen-recorder-notification
-          cd /__w/lunaos-repo/gpu-screen-recorder-notification
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -si"
-          rm -r /__w/lunaos-repo/gpu-screen-recorder-notification
-
-      - name: Build gpu-screen-recorder-ui
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch gpu-screen-recorder-ui --single-branch https://github.com/archlinux/aur.git gpu-screen-recorder-ui
-          cd /__w/lunaos-repo/gpu-screen-recorder-ui
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/gpu-screen-recorder-ui
-
-      - name: Build gpu-screen-recorder-gtk
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch gpu-screen-recorder-gtk --single-branch https://github.com/archlinux/aur.git gpu-screen-recorder-gtk
-          cd /__w/lunaos-repo/gpu-screen-recorder-gtk
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/gpu-screen-recorder-gtk
-
-      - name: Build cassette
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch cassette --single-branch https://github.com/archlinux/aur.git cassette
-          cd /__w/lunaos-repo/cassette
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/cassette
-
-      - name: Build gapless
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch gapless --single-branch https://github.com/archlinux/aur.git gapless
-          cd /__w/lunaos-repo/gapless
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/gapless
-
-      - name: Build qogir-cursor-theme-git
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/qogir-cursor-theme.git
-          cd /__w/lunaos-repo/qogir-cursor-theme
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/qogir-cursor-theme
-
-      - name: Build lunaos-dracut-support
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-dracut-support.git
-          cd /__w/lunaos-repo/lunaos-dracut-support
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
-          rm -r /__w/lunaos-repo/lunaos-dracut-support
-
-      - name: Build lunaos-samba-support
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/meta-packages/lunaos-samba-support.git
-          cd /__w/lunaos-repo/lunaos-samba-support
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
-          rm -r /__w/lunaos-repo/lunaos-samba-support
-
-      - name: Build kernel-install-for-dracut
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/kernel-install-for-dracut.git
-          cd /__w/lunaos-repo/kernel-install-for-dracut
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
-          rm -r /__w/lunaos-repo/kernel-install-for-dracut
-
-      - name: Build Plymouth
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/plymouth/plymouth.git
-          cd /__w/lunaos-repo/plymouth
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/plymouth
-
-      - name: Build LunaOS Keyring
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-keyring.git
-          cd /__w/lunaos-repo/lunaos-keyring
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/lunaos-keyring
-
-      - name: Build LunaOS Mirrorlist
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-mirrorlist.git
-          cd /__w/lunaos-repo/lunaos-mirrorlist
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/lunaos-mirrorlist
-
-      - name: Build LunaOS Settings
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-settings.git
-          cd /__w/lunaos-repo/lunaos-settings
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-          rm -r /__w/lunaos-repo/lunaos-settings
-
-      - name: Build LunaOS HandHeld Settings
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-settings-handheld.git
-          cd /__w/lunaos-repo/lunaos-settings-handheld
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-          rm -r /__w/lunaos-repo/lunaos-settings-handheld
-
-      - name: Build LunaOS Mac T2 Settings
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-settings-t2.git
-          cd /__w/lunaos-repo/lunaos-settings-t2
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-          rm -r /__w/lunaos-repo/lunaos-settings-t2
-
-      - name: Build LunaOS Zram Defaults
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/lunaos-zram-defaults.git
-          cd /__w/lunaos-repo/lunaos-zram-defaults
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/lunaos-zram-defaults
-
-      - name: Build dkms
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/dkms.git
-          cd /__w/lunaos-repo/dkms
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/dkms
-
-      - name: Build bauh
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/bauh.git
-          cd /__w/lunaos-repo/bauh
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/bauh
-
-      - name: Build Nautilus
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/nautilus.git
-          cd /__w/lunaos-repo/nautilus
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/nautilus
-
-      - name: Build Nautilus Backspace Back Extension
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/nautilus-backspace-back-extension.git
-          cd /__w/lunaos-repo/nautilus-backspace-back-extension
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/nautilus-backspace-back-extension
-
-      - name: Build Nautilus Admin Extension
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch nautilus-admin-gtk4 --single-branch https://github.com/archlinux/aur.git nautilus-admin-gtk4
-          cd /__w/lunaos-repo/nautilus-admin-gtk4
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/nautilus-admin-gtk4
-
-      - name: Build Nautilus Copy Path Extension
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch nautilus-copy-path --single-branch https://github.com/archlinux/aur.git nautilus-copy-path
-          cd /__w/lunaos-repo/nautilus-copy-path
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/nautilus-copy-path
-
-      - name: Build Steal my focus window Gnome Shell Extension
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-stealmyfocus.git
-          cd /__w/lunaos-repo/gnome-shell-extension-stealmyfocus
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/gnome-shell-extension-stealmyfocus
-
-      - name: Build Disable unredirect fullscreen windows Gnome Shell Extension
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-disable-unredirect.git
-          cd /__w/lunaos-repo/gnome-shell-extension-disable-unredirect
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/gnome-shell-extension-disable-unredirect
-
-      - name: Build GPU profile selector Gnome Shell Extension
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-gpu-profile-selector.git
-          cd /__w/lunaos-repo/gnome-shell-extension-gpu-profile-selector
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-          rm -r /__w/lunaos-repo/gnome-shell-extension-gpu-profile-selector
-
-      - name: Build Bluetooth Battery Meter Gnome Shell Extension
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-bluetooth-battery-meter.git
-          cd /__w/lunaos-repo/gnome-shell-extension-bluetooth-battery-meter
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-          rm -r /__w/lunaos-repo/gnome-shell-extension-bluetooth-battery-meter
-
-      - name: Build Legacy (GTK3) Theme Scheme Auto Switcher Gnome Shell Extension
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-legacy-theme-auto-switcher.git
-          cd /__w/lunaos-repo/gnome-shell-extension-legacy-theme-auto-switcher
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/gnome-shell-extension-legacy-theme-auto-switcher
-
-      - name: Build GJS OSK
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-gjs-osk-git.git
-          cd /__w/lunaos-repo/gnome-shell-extension-gjs-osk-git
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/gnome-shell-extension-gjs-osk-git
-
-      - name: Build adw-gtk-theme
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/adw-gtk-theme.git
-          cd /__w/lunaos-repo/adw-gtk-theme
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/adw-gtk-theme
-
-      - name: Build Blur my Shell Gnome Shell Extension
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-blur-my-shell.git
-          cd /__w/lunaos-repo/gnome-shell-extension-blur-my-shell
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-          rm -r /__w/lunaos-repo/gnome-shell-extension-blur-my-shell
-
-      - name: Build Dash to Dock Gnome Shell Extension
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-dash-to-dock.git
-          cd /__w/lunaos-repo/gnome-shell-extension-dash-to-dock
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/gnome-shell-extension-dash-to-dock
-
-      - name: Build AppIndicator and KStatusNotifierItem Support GNOME Shell Extension
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-appindicator.git
-          cd /__w/lunaos-repo/gnome-shell-extension-appindicator
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/gnome-shell-extension-appindicator
-
-      - name: Build Clipboard Indicator GNOME Shell Extension
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-clipboard-indicator.git
-          cd /__w/lunaos-repo/gnome-shell-extension-clipboard-indicator
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/gnome-shell-extension-clipboard-indicator
-
-      - name: Build gnome-tuner
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch gnome-tuner --single-branch https://github.com/archlinux/aur.git gnome-tuner
-          cd /__w/lunaos-repo/gnome-tuner
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -si"
-          rm -r /__w/lunaos-repo/gnome-tuner
-
-      - name: Build gnome-tuner-gdm
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch gnome-tuner-gdm --single-branch https://github.com/archlinux/aur.git gnome-tuner-gdm
-          cd /__w/lunaos-repo/gnome-tuner-gdm
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/gnome-tuner-gdm
-
-      - name: Build gnome-tuner-tweaks
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch gnome-tuner-tweaks --single-branch https://github.com/archlinux/aur.git gnome-tuner-tweaks
-          cd /__w/lunaos-repo/gnome-tuner-tweaks
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/gnome-tuner-tweaks
-
-      - name: Build LunaOS Gnome Settings
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/lunaos-gnome-settings.git
-          cd /__w/lunaos-repo/lunaos-gnome-settings
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-          rm -r /__w/lunaos-repo/lunaos-gnome-settings
-
-      - name: Build Optimus GPU Switcher KDE Plasma Widget
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/plasma/optimus-gpu-switcher-kde-plasma-widget.git
-          cd /__w/lunaos-repo/optimus-gpu-switcher-kde-plasma-widget
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/optimus-gpu-switcher-kde-plasma-widget
-
-      - name: Build Otto kde theme
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/plasma/kde-otto-theme.git
-          cd /__w/lunaos-repo/kde-otto-theme
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/kde-otto-theme
-
-      - name: Build LunaOS Plasma Settings
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/plasma/lunaos-plasma-settings.git
-          cd /__w/lunaos-repo/lunaos-plasma-settings
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-          rm -r /__w/lunaos-repo/lunaos-plasma-settings
-
-      - name: Build LunaOS Hyprland Settings
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/lunaos-hyprland-settings.git
-          cd /__w/lunaos-repo/lunaos-hyprland-settings
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-          rm -r /__w/lunaos-repo/lunaos-hyprland-settings
-
-      - name: Build Uresourced
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/uresourced.git
-          cd /__w/lunaos-repo/uresourced
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/uresourced
-          
-      - name: Build apple-t2-audio-config
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/t2-linux/apple-t2-audio-config.git
-          cd /__w/lunaos-repo/apple-t2-audio-config
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/apple-t2-audio-config
-          
-      - name: Build t2fanrd
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/t2-linux/t2fanrd.git
-          cd /__w/lunaos-repo/t2fanrd
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/t2fanrd
-          
-      - name: Build tiny-dfr
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/t2-linux/tiny-dfr.git
-          cd /__w/lunaos-repo/tiny-dfr
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/tiny-dfr
-
-      - name: Build Nvidia 470xx meta
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-470xx-meta.git
-          cd /__w/lunaos-repo/nvidia-470xx-meta
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-          rm -r /__w/lunaos-repo/nvidia-470xx-meta
-
-      - name: Build Nvidia 580xx utils
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-580xx-utils.git
-          cd /__w/lunaos-repo/nvidia-580xx-utils
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/nvidia-580xx-utils
-
-      - name: Build lib32 Nvidia 580xx utils
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/lib32-nvidia-580xx-utils.git
-          cd /__w/lunaos-repo/lib32-nvidia-580xx-utils
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/lib32-nvidia-580xx-utils
-
-      - name: Build Nvidia 580xx settings
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-580xx-settings.git
-          cd /__w/lunaos-repo/nvidia-580xx-settings
-          sudo pacman -S --noconfirm --needed jansson gtk3 libxv libvdpau libxext vulkan-headers
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
-          rm -r /__w/lunaos-repo/nvidia-580xx-settings
-
-      - name: Build Nvidia meta
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-meta.git
-          cd /__w/lunaos-repo/nvidia-meta
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-          rm -r /__w/lunaos-repo/nvidia-meta
-
-      - name: Build Nvidia 580xx meta
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-580xx-meta.git
-          cd /__w/lunaos-repo/nvidia-580xx-meta
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
-          rm -r /__w/lunaos-repo/nvidia-580xx-meta
-
-      - name: Build Nvidia Open meta
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-open-meta.git
-          cd /__w/lunaos-repo/nvidia-open-meta
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-          rm -r /__w/lunaos-repo/nvidia-open-meta
-
-      - name: Build Nvidia Tweaks
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-tweaks.git
-          cd /__w/lunaos-repo/nvidia-tweaks
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-          rm -r /__w/lunaos-repo/nvidia-tweaks
-
-      - name: Build Nouveau Tweaks
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nouveau-tweaks.git
-          cd /__w/lunaos-repo/nouveau-tweaks
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-          rm -r /__w/lunaos-repo/nouveau-tweaks
-
-      - name: Build Nvidia modules for ISO
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/nvidia/nvidia-modules.git
-          cd /__w/lunaos-repo/nvidia-modules
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/nvidia-modules
-
-      - name: Build Nouveau Reclocking
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch nouveau-reclocking --single-branch https://github.com/archlinux/aur.git nouveau-reclocking
-          cd /__w/lunaos-repo/nouveau-reclocking
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/nouveau-reclocking
-
-      - name: Build EnvyControl
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/envycontrol.git
-          cd /__w/lunaos-repo/envycontrol
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/envycontrol
-
-      - name: Build Intel meta
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/intel-meta.git
-          cd /__w/lunaos-repo/intel-meta
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-          rm -r /__w/lunaos-repo/intel-meta
-
-      - name: Build AMD meta
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/amd-meta.git
-          cd /__w/lunaos-repo/amd-meta
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-          rm -r /__w/lunaos-repo/amd-meta
-
-      - name: Build ROCM Meta
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/drivers/rocm-meta.git
-          cd /__w/lunaos-repo/rocm-meta
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -sd"
-          rm -r /__w/lunaos-repo/rocm-meta
-
-      - name: Build PortProtonQt
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch portprotonqt --single-branch https://github.com/archlinux/aur.git portprotonqt
-          cd /__w/lunaos-repo/portprotonqt
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/portprotonqt
-
-      - name: Build pylinuxwheel
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/pylinuxwheel.git
-          cd /__w/lunaos-repo/pylinuxwheel
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
-          rm -r /__w/lunaos-repo/pylinuxwheel
-
-      - name: check libalpm.so and pacman versiom
-        run: |
-          pacman -Q pacman
-          pacman -Ql pacman | grep -i libalpm.so
-
-      - name: Build LunaOS LibPamac
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/pamac/lunaos-libpamac.git
-          cd /__w/lunaos-repo/lunaos-libpamac
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -si"
-          rm -r /__w/lunaos-repo/lunaos-libpamac
-
-      - name: Build LunaOS Pamac
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/pamac/lunaos-pamac.git
-          cd /__w/lunaos-repo/lunaos-pamac
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/lunaos-pamac
-
-      - name: Build pamac-tray-icon-plasma
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch pamac-tray-icon-plasma --single-branch https://github.com/archlinux/aur.git pamac-tray-icon-plasma
-          cd /__w/lunaos-repo/pamac-tray-icon-plasma
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/pamac-tray-icon-plasma
-
-      - name: Build LunaOS GRUB theme
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/lunaos-grub-theme.git
-          cd /__w/lunaos-repo/lunaos-grub-theme
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
-          rm -r /__w/lunaos-repo/lunaos-grub-theme
-
-      - name: Build GRUB Meta
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/meta-packages/grub-meta.git
-          cd /__w/lunaos-repo/grub-meta
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
-          rm -r /__w/lunaos-repo/grub-meta
-
-      - name: Build Jupiter Fan Control
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/jupiter-fan-control.git
-          cd /__w/lunaos-repo/jupiter-fan-control
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/jupiter-fan-control
-
-      - name: Build Jupiter Hw Support
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/jupiter-hw-support.git
-          cd /__w/lunaos-repo/jupiter-hw-support
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/jupiter-hw-support
-
-      - name: Build SteamDeck DSP
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/steamdeck-dsp.git
-          cd /__w/lunaos-repo/steamdeck-dsp
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/steamdeck-dsp
-
-      - name: Build SteamDeck DKMS
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/steamdeck-dkms.git
-          cd /__w/lunaos-repo/steamdeck-dkms
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/steamdeck-dkms
-
-      - name: Build tuned-ppd-swapper
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/tuned-balanced-fix.git
-          cd /__w/lunaos-repo/tuned-balanced-fix
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
-          rm -r /__w/lunaos-repo/tuned-balanced-fix
-
-      - name: Build galileo-mura
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/galileo-mura.git
-          cd /__w/lunaos-repo/galileo-mura
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/galileo-mura
-
-      - name: Build Kvantm LibAdwaita theme
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch kvantum-theme-libadwaita-git --single-branch https://github.com/archlinux/aur.git kvantum-theme-libadwaita-git
-          cd /__w/lunaos-repo/kvantum-theme-libadwaita-git
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/kvantum-theme-libadwaita-git
-
-      - name: Build Kvantum Colloid theme
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/colloid-kvantum-theme.git
-          cd /__w/lunaos-repo/colloid-kvantum-theme
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/colloid-kvantum-theme
-
-      - name: Build lunaos-bash-config
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-bash-config.git
-          cd /__w/lunaos-repo/lunaos-bash-config
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
-          rm -r /__w/lunaos-repo/lunaos-bash-config
-
-      - name: Build zsh4humans
-        run: |
-          cd /__w/lunaos-repo
-          git clone https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/zsh4humans.git
-          cd /__w/lunaos-repo/zsh4humans
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
-          rm -r /__w/lunaos-repo/zsh4humans
-
-      - name: Build Figma
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch figma-linux-bin --single-branch https://github.com/archlinux/aur.git figma-linux-bin
-          cd /__w/lunaos-repo/figma-linux-bin
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/figma-linux-bin
-
-      - name: Build galaxybudsclient-bin
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch galaxybudsclient-bin --single-branch https://github.com/archlinux/aur.git galaxybudsclient-bin
-          cd /__w/lunaos-repo/galaxybudsclient-bin
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/galaxybudsclient-bin
-
-      - name: Build asusctl
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch asusctl --single-branch https://github.com/archlinux/aur.git asusctl
-          cd /__w/lunaos-repo/asusctl
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -s"
-          rm -r /__w/lunaos-repo/asusctl
-
-      - name: Build asusctltray-git
-        run: |
-          cd /__w/lunaos-repo
-          git clone --branch asusctltray-git --single-branch https://github.com/archlinux/aur.git asusctltray-git
-          cd /__w/lunaos-repo/asusctltray-git
-          chown user -R ..
-          su user -c "yes '' | makepkg --noconfirm -d"
-          rm -r /__w/lunaos-repo/asusctltray-git
+          path: /tmp/lunaos-input
+
+      - name: Build changed packages and dependents
+        id: buildbot
+        run: python3 "$GITHUB_WORKSPACE/buildbot.py"
 
       - name: Sign lunaos repo
-        run: |
-          cd $PKGDEST
-          sh /__w/lunaos-repo/sign.sh
+        if: steps.buildbot.outputs.fatal == '0' && steps.buildbot.outputs.packages_built != '0'
+        env:
+          GPG_PASSPHRASE: ${{ secrets.PASSPHRASE }}
+        run: sh "$GITHUB_WORKSPACE/sign.sh" 2>&1 | tee "$BUILDBOT_LOGDIR/sign.log"
 
-      - name: Update lunaos repo
-        run: |
-          cd $PKGDEST
-          sh /__w/lunaos-repo/update-repo.sh
+      - name: Update lunaos repo database
+        if: steps.buildbot.outputs.fatal == '0' && steps.buildbot.outputs.packages_built != '0'
+        env:
+          GPG_PASSPHRASE: ${{ secrets.PASSPHRASE }}
+        run: sh "$GITHUB_WORKSPACE/update-repo.sh" 2>&1 | tee "$BUILDBOT_LOGDIR/database.log"
 
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
+      - name: Publish repository release
+        if: steps.buildbot.outputs.fatal == '0' && steps.buildbot.outputs.packages_built != '0'
+        timeout-minutes: 30
+        run: bash "$GITHUB_WORKSPACE/publish-repo.sh" 2>&1 | tee "$BUILDBOT_LOGDIR/publish.log"
 
-      - name: Make release
-        uses: mathieucarbou/marvinpinto-action-automatic-releases@latest
-        with:
-          repo_token: "${{ env.GITHUB_TOKEN }}"
-          prerelease: false
-          automatic_release_tag: lunaos-repo
-          files: ${{ env.PKGDEST }}/*
-
-      - name: Upload repo to S3
+      - name: Upload repository to S3
+        timeout-minutes: 30
+        if: steps.buildbot.outputs.fatal == '0' && steps.buildbot.outputs.packages_built != '0'
         env:
           FTP_SERVER: ftp.ru1.storage.beget.cloud
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
           LOCAL_DIR: ${{ env.PKGDEST }}/
           SERVER_DIR: ${{ secrets.S3_BUCKET_NAME }}/lunaos-repo/
+        run: bash "$GITHUB_WORKSPACE/upload-repo.sh" 2>&1 | tee "$BUILDBOT_LOGDIR/upload.log"
+
+      - name: Save package state
+        if: success() && steps.buildbot.outputs.fatal == '0' && hashFiles('.build-state/state.json') != ''
+        uses: actions/cache/save@v5
+        with:
+          path: .build-state
+          key: lunaos-package-state-v2-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Final diagnostics
+        if: always()
         run: |
-          lftp -c "
-            set cmd:fail-exit yes
-            set ftp:ssl-force yes
-            set ssl:check-hostname no
-            set mirror:set-permissions false
-            open -u $FTP_USERNAME,$FTP_PASSWORD $FTP_SERVER
-            mirror --reverse \
-              --only-newer \
-              --delete \
-              --parallel=4 \
-              --dereference \
-              --verbose \
-              $LOCAL_DIR $SERVER_DIR
-          "
+          mkdir -p "$BUILDBOT_LOGDIR"
+          { date -u; df -h; free -h; ps -eo pid,ppid,comm,etime; } > "$BUILDBOT_LOGDIR/final-environment.log"
+
+      - name: Upload build logs and state
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lunaos-build-logs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build-logs/
+            .build-state/state.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Fail run when packages failed
+        if: always() && (steps.buildbot.outcome == 'failure' || (steps.buildbot.outputs.failed != '' && steps.buildbot.outputs.failed != '0'))
+        run: exit 1

@@ -50,6 +50,7 @@ jobs:
     permissions:
       contents: write
       actions: write
+      issues: write
 
     container:
       image: archlinux:base-devel

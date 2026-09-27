@@ -26,10 +26,14 @@ live in [`packages.tsv`](packages.tsv). It compares upstream revisions with the 
 reads each package's `.SRCINFO`, and builds changed packages plus their reverse dependency tree in dependency order.
 It also tracks installed build-dependency versions: Python extensions rebuild when Python's minor ABI changes, while
 Python bugfix releases alone do not trigger a rebuild.
+Published packages that match a package in Arch's `core`, `extra`, or `multilib` repositories are checked automatically.
+When Arch is ahead, the buildbot opens an issue to update the LunaOS copy while carrying its local patches forward.
 
 Each package builds into its own staging directory. A failed package does not stop unrelated builds, its previous
 published package remains available, and packages that depend on a failed build are marked blocked. Successful packages
 are signed and published even when another package fails. Failed and blocked packages are retried on the next run.
+If a rebuild would publish the same or an older package version, the builder opens a GitHub issue asking for a `pkgrel`
+bump in the package source and waits for that source change before retrying. Repeated runs reuse the open issue.
 
 The Actions run summary lists package statuses. Each package's full build output is attached as the
 `lunaos-build-logs-*` artifact. The builder also stores source revisions and package status in the Actions cache so it

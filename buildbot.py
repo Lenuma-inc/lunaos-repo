@@ -105,9 +105,84 @@ def graph(packages, metadata):
     return dependencies, dependents
 
 
-def archive_name(path):
+def archive_info(path):
     info = run(["bsdtar", "-xOf", str(path), ".PKGINFO"], check=False)
-    return next((line.partition(" = ")[2] for line in info.splitlines() if line.startswith("pkgname = ")), "")
+    return {key: value for line in info.splitlines() if (key := line.partition(" = ")[0]) and (value := line.partition(" = ")[2])}
+
+
+def published_packages():
+    result = {}
+    for path in PKGDEST.glob("*.pkg.tar.zst"):
+        if info := archive_info(path):
+            if name := info.get("pkgname"):
+                info["_path"] = str(path)
+                result[name] = info
+    return result
+
+
+def create_pkgrel_issue(name, row, revision, current, published, dependency_changes):
+    title = f"[rebuild] {name}: bump pkgrel"
+    issues = json.loads(run(["gh", "issue", "list", "--state", "open", "--limit", "1000", "--json", "number,title"]))
+    existing = next((issue for issue in issues if issue["title"] == title), None)
+    if existing:
+        return existing["number"]
+    changed = ", ".join(f"`{dep}` {old} → {new}" for dep, (old, new) in dependency_changes.items()) or "package source changed"
+    source = row["url"].removesuffix(".git")
+    source_link = f"{source}/-/tree/{revision}" if "gitlab" in source else f"{source}/tree/{revision}"
+    body = (
+        f"A rebuild of `{name}` produced `{current}`, which does not upgrade the published `{published}`.\n\n"
+        f"Please bump `pkgrel` (or update `pkgver` if needed) in the [package source]({source_link}) and push the change. "
+        "The buildbot will retry after the source changes.\n\n"
+        f"Trigger: {changed}\n\nSource revision: `{revision}`"
+    )
+    url = run(["gh", "issue", "create", "--title", title, "--body", body])
+    return int(url.rstrip("/").rsplit("/", 1)[-1])
+
+
+def check_arch_updates(packages, published):
+    try:
+        issues = json.loads(run(["gh", "issue", "list", "--state", "open", "--limit", "1000", "--json", "number,title"]))
+    except Exception as exc:
+        print(f"::warning::Could not list Arch update issues: {exc}")
+        return
+    for package_name, current in published.items():
+        owner = packages.get(package_name) or packages.get(current.get("pkgbase", ""))
+        if not owner:
+            continue
+        try:
+            name = owner["directory"]
+            title = f"[update] {name}: sync Arch package"
+            existing = next((issue for issue in issues if issue["title"] == title), None)
+            arch_version = arch_repo = arch_arch = ""
+            for repo in ("core", "extra", "multilib"):
+                result = run(["pacman", "-Si", f"{repo}/{package_name}"], check=False)
+                version = re.search(r"^Version\s*:\s*(.+)$", result, re.MULTILINE)
+                if version:
+                    arch_version = version.group(1).strip()
+                    arch_repo = repo
+                    architecture = re.search(r"^Architecture\s*:\s*(.+)$", result, re.MULTILINE)
+                    arch_arch = architecture.group(1).strip() if architecture else "x86_64"
+                    break
+            if not arch_version:
+                continue
+            if int(run(["vercmp", arch_version, current["pkgver"]])) <= 0:
+                if existing:
+                    run(["gh", "issue", "close", str(existing["number"]), "--comment", "The LunaOS package now matches or exceeds Arch."])
+                continue
+            if existing:
+                continue
+            source = owner["url"].removesuffix(".git")
+            source_link = f"{source}/-/tree/HEAD" if "gitlab" in source else f"{source}/tree/HEAD"
+            body = (
+                f"Arch has `{arch_version}`, while LunaOS publishes `{current['pkgver']}`.\n\n"
+                "Update this patched package to the current Arch version and carry its LunaOS changes forward.\n\n"
+                f"[Package source]({source_link}) · [Arch package](https://archlinux.org/packages/{arch_repo}/{arch_arch}/{package_name}/)"
+            )
+            url = run(["gh", "issue", "create", "--title", title, "--body", body])
+            issues.append({"number": int(url.rstrip("/").rsplit("/", 1)[-1]), "title": title})
+            print(f"::notice::Arch update available for {name}: {current['pkgver']} → {arch_version}")
+        except Exception as exc:
+            print(f"::warning::Could not check Arch version for {package_name}: {exc}")
 
 
 def installed_versions():
@@ -172,7 +247,8 @@ def main():
     for name, row in packages.items():
         try:
             refs[name] = source_sha(row)
-            if refs[name] != sources.get(name):
+            pending = previous.get(name, {})
+            if refs[name] != sources.get(name) and refs[name] != pending.get("pending_source"):
                 changed.add(name)
         except Exception as exc:
             results[name] = {"status": "source-check-failed", "detail": str(exc)}
@@ -200,20 +276,23 @@ def main():
 
     dependencies, dependents = graph(packages, metadata)
     installed = installed_versions()
-    dependency_changes = set()
+    dependency_changes = {}
     for name, info in metadata.items():
         old_versions = previous.get(name, {}).get("dependency_versions", {})
         current_versions = dependency_versions(info, installed)
-        if any(dep in old_versions and old_versions[dep] != version for dep, version in current_versions.items()):
-            dependency_changes.add(name)
+        diff = {dep: (old_versions[dep], version) for dep, version in current_versions.items() if dep in old_versions and old_versions[dep] != version}
+        if diff:
+            dependency_changes[name] = diff
     retry = {name for name, info in previous.items() if info.get("status") in {"failed", "blocked", "source-failed", "source-check-failed"}}
-    seeds = set(packages) if full else changed | dependency_changes | requested | retry
+    seeds = set(packages) if full else changed | set(dependency_changes) | requested | retry
     selected = closure(seeds, dependents)
     for name in packages:
         if name in results and name not in selected:
             selected.add(name)
     build_order = order(selected, dependencies)
     firmware = Path(os.environ.get("FIRMWARE_TARBALL", "/tmp/lunaos-input/firmware.tar"))
+    published = published_packages()
+    check_arch_updates(packages, published)
 
     for name in build_order:
         if name in results and results[name]["status"] in {"source-failed", "source-check-failed"}:
@@ -248,31 +327,55 @@ def main():
                 for line in proc.stdout:
                     sys.stdout.write(f"[{name}] {line}")
                     log.write(line)
-                code = proc.wait()
-            if code:
-                raise RuntimeError(f"makepkg exited {code}; see {log_path}")
-            built = list(stage.glob("*.pkg.tar.zst"))
+                if proc.wait():
+                    raise RuntimeError(f"makepkg failed; see {log_path}")
+                built = list(stage.glob("*.pkg.tar.zst"))
             if not built:
                 raise RuntimeError("makepkg produced no package archives")
+            built_info = [archive_info(package) for package in built]
+            stale = [(info, published.get(info.get("pkgname", ""))) for info in built_info]
+            stale = [(info, old) for info, old in stale if old and int(run(["vercmp", info.get("pkgver", ""), old.get("pkgver", "")])) <= 0]
+            if stale:
+                info, old = stale[0]
+                number = create_pkgrel_issue(name, row, revisions.get(name, refs.get(name, "unknown")), info["pkgver"], old["pkgver"], dependency_changes.get(name, {}))
+                detail = f"needs pkgrel bump; issue #{number} ({info['pkgver']} ≤ {old['pkgver']})"
+                results[name] = {"status": "needs-pkgrel", "detail": detail}
+                previous[name] = {
+                    "metadata": metadata.get(name, {}),
+                    "dependency_versions": dependency_versions(metadata.get(name, {}), installed_versions()),
+                    "pending_source": revisions.get(name, refs.get(name, "")),
+                    "issue": number,
+                    "status": "needs-pkgrel",
+                }
+                sources[name] = revisions.get(name, refs.get(name, ""))
+                log_path.write_text(f"{detail}\nPlease bump pkgrel in {row['url']}\n")
+                continue
             if dependents[name] & selected:
                 run(["pacman", "-U", "--noconfirm", "--asdeps", *map(str, built)])
-            package_names = set(metadata[name].get("names", []))
-            for item in PKGDEST.glob("*.pkg.tar.zst"):
-                if archive_name(item) in package_names | {f"{pkgname}-debug" for pkgname in package_names}:
-                    item.unlink()
+            for info in built_info:
+                old = published.pop(info.get("pkgname", ""), None)
+                if old:
+                    item = Path(old["_path"])
+                    item.unlink(missing_ok=True)
                     item.with_name(item.name + ".sig").unlink(missing_ok=True)
             for item in stage.iterdir():
                 shutil.move(str(item), PKGDEST / item.name)
+            for info, package in zip(built_info, built):
+                info["_path"] = str(PKGDEST / package.name)
+                published[info["pkgname"]] = info
             if row["after"]:
                 run(["bash", "-lc", row["after"]])
             results[name] = {"status": "built", "detail": ", ".join(p.name for p in built)}
             sources[name] = revisions.get(name, refs.get(name, ""))
+            old_issue = previous.get(name, {}).get("issue")
             previous[name] = {
                 "metadata": metadata.get(name, {}),
                 "dependency_versions": dependency_versions(metadata.get(name, {}), installed_versions()),
                 "status": "built",
                 "built_at": dt.datetime.now(dt.timezone.utc).isoformat(),
             }
+            if old_issue:
+                run(["gh", "issue", "close", str(old_issue), "--comment", "A package version newer than the published build was successfully published."], check=False)
         except Exception as exc:
             results[name] = {"status": "failed", "detail": str(exc)}
             with log_path.open("a") as log:
@@ -291,7 +394,7 @@ def main():
     state = {"sources": sources, "packages": previous, "updated_at": dt.datetime.now(dt.timezone.utc).isoformat()}
     STATE_PATH.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n")
     emit_summary(results, changed, dependency_changes, selected)
-    failed = sum(result["status"] != "built" for result in results.values())
+    failed = sum(result["status"] in {"failed", "source-failed", "source-check-failed"} for result in results.values())
     with open(os.environ["GITHUB_OUTPUT"], "a") as output:
         output.write(f"failed={failed}\npackages_built={sum(r['status'] == 'built' for r in results.values())}\n")
     return 0

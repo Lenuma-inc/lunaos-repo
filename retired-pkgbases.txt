@@ -1,0 +1,6 @@
+asusctl
+cpptrace
+gpu-screen-recorder-gtk
+gpu-screen-recorder-notification
+gpu-screen-recorder-ui
+nautilus

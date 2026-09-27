@@ -1,14 +1,22 @@
-#  First, install our and chaotic-aur mirrorlist and keys.
+# LunaOS package repository
+
+## Install
+
+Install the LunaOS and Chaotic-AUR signing keys and mirror lists:
 
 ```sh
 sudo pacman-key --recv-key 3056513887B78AEB 78B2BAAB82C8D511 --keyserver keyserver.ubuntu.com
 sudo pacman-key --lsign-key 3056513887B78AEB 78B2BAAB82C8D511
-sudo pacman -U 'https://github.com/lenuma-inc/lunaos-repo/releases/download/lunaos-repo/lunaos-keyring-4-1-any.pkg.tar.zst' 'https://github.com/lenuma-inc/lunaos-repo/releases/download/lunaos-repo/lunaos-mirrorlist-2-3-x86_64.pkg.tar.zst' 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
+sudo pacman -U \
+  'https://github.com/lenuma-inc/lunaos-repo/releases/download/lunaos-repo/lunaos-keyring-4-1-any.pkg.tar.zst' \
+  'https://github.com/lenuma-inc/lunaos-repo/releases/download/lunaos-repo/lunaos-mirrorlist-2-3-x86_64.pkg.tar.zst' \
+  'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' \
+  'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
 ```
 
-#  Append (adding to the end of the file) to /etc/pacman.conf: 
+Add these entries to `/etc/pacman.conf`:
 
-```sh
+```ini
 [lunaos-repo]
 Include = /etc/pacman.d/lunaos-mirrorlist
 
@@ -16,5 +24,20 @@ Include = /etc/pacman.d/lunaos-mirrorlist
 Include = /etc/pacman.d/chaotic-mirrorlist
 ```
 
-# Repository build status
-[![LunaOS Repo Update](https://github.com/Lenuma-inc/lunaos-repo/actions/workflows/update-lunaos-repo.yml/badge.svg)](https://github.com/Lenuma-inc/lunaos-repo/actions/workflows/update-lunaos-repo.yml)
+Then refresh package databases with `sudo pacman -Syu`.
+
+## Build status
+
+[![Repository update](https://github.com/Lenuma-inc/lunaos-repo/actions/workflows/update-lunaos-repo.yml/badge.svg)](https://github.com/Lenuma-inc/lunaos-repo/actions/workflows/update-lunaos-repo.yml)
+
+The buildbot runs every two hours. It builds changed packages and their dependents,
+checks ABI compatibility, and opens issues for upstream updates or required `pkgrel`
+bumps. Failed builds block their dependents; other packages are still published.
+
+Sources and build options are listed in [`packages.tsv`](packages.tsv). To rebuild
+packages manually, open **Actions → LunaOS Repo Update → Run workflow** and select
+all packages or enter package directories.
+
+Removing a source from `packages.tsv` retires its published packages. For older
+archives without `.buildbot.json` metadata, also add the `pkgbase` to
+[`retired-pkgbases.txt`](retired-pkgbases.txt).

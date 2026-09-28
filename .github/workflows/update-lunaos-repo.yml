@@ -3,14 +3,10 @@ on:
   schedule:
     - cron: "11 */2 * * *"
   push:
-    branches: [main]
     paths:
       - ".github/workflows/update-lunaos-repo.yml"
       - "buildbot.py"
       - "buildbot_runtime.py"
-      - "prepare-container.sh"
-      - "publish-repo.sh"
-      - "upload-repo.sh"
       - "packages.tsv"
       - "makepkg.conf"
       - "sign.sh"
@@ -37,7 +33,7 @@ jobs:
 
       - name: Rename and tar firmware
         run: |
-          curl --fail --show-error --location --retry 3 https://raw.githubusercontent.com/t2linux/wiki/9314a44971df3d6aff9af96b023181fb3e40ad2b/docs/tools/firmware.sh > firmware.sh
+          curl -L https://raw.githubusercontent.com/t2linux/wiki/9314a44971df3d6aff9af96b023181fb3e40ad2b/docs/tools/firmware.sh > firmware.sh
           python3 firmware.sh /usr/share/firmware ${{ github.workspace }}/firmware.tar -v
           mkdir firmware
           mv ./firmware.tar ./firmware
@@ -51,10 +47,6 @@ jobs:
   build:
     needs: [macOS]
     runs-on: ubuntu-24.04
-    timeout-minutes: 350
-    defaults:
-      run:
-        shell: bash --noprofile --norc -e -o pipefail {0}
 
     permissions:
       contents: write
@@ -74,13 +66,8 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
-      PYTHONUNBUFFERED: "1"
-      BUILDBOT_COMMAND_TIMEOUT: "600"
-      BUILDBOT_BUILD_TIMEOUT: "7200"
-      BUILDBOT_RUN_TIMEOUT: "14400"
-      BUILDBOT_ISSUES: ${{ vars.BUILDBOT_ISSUES || 'false' }}
-      BUILDBOT_ARCH_ISSUES: ${{ vars.BUILDBOT_ARCH_ISSUES || 'false' }}
-      BUILDBOT_REBUILD_DEPS: ${{ vars.BUILDBOT_REBUILD_DEPS || 'python' }}
+      GPG_PASSPHRASE: ${{ secrets.PASSPHRASE }}
+      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
       BUILDBOT_FULL: ${{ github.event.inputs.full || 'false' }}
       BUILDBOT_PACKAGES: ${{ github.event.inputs.packages || '' }}
       BUILDBOT_STATE: ${{ github.workspace }}/.build-state/state.json
@@ -90,27 +77,121 @@ jobs:
       - name: Checkout buildbot
         uses: actions/checkout@v7
 
-      - name: Initialize diagnostics
-        run: |
-          mkdir -p "$BUILDBOT_LOGDIR"
-          { date -u; uname -a; df -h; free -h; } | tee "$BUILDBOT_LOGDIR/environment.log"
-
       - name: Restore package state
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: .build-state
-          key: lunaos-package-state-v2-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: lunaos-package-state-v2-
+          key: lunaos-package-state-${{ github.run_id }}
+          restore-keys: lunaos-package-state-
 
       - name: Prepare container
-        timeout-minutes: 30
-        run: bash "$GITHUB_WORKSPACE/prepare-container.sh" 2>&1 | tee "$BUILDBOT_LOGDIR/prepare.log"
+        run: |
+          pacman -Syuu --noconfirm --disable-download-timeout --needed git wget gnupg lftp github-cli python nvchecker
+          cp "$GITHUB_WORKSPACE/makepkg.conf" /etc/makepkg.conf
+
+          yes | pacman -Scc
+          pacman-key --init
+          pacman -S --noconfirm archlinux-keyring
+
+          LUNA_KEYRING_URL=$(curl -s https://api.github.com/repos/lenuma-inc/lunaos-repo/releases/latest \
+            | grep browser_download_url \
+            | grep 'lunaos-keyring' \
+            | grep '.pkg.tar.zst' \
+            | grep -v '.sig' \
+            | cut -d '"' -f 4)
+
+          LUNA_MIRRORLIST_URL=$(curl -s https://api.github.com/repos/lenuma-inc/lunaos-repo/releases/latest \
+            | grep browser_download_url \
+            | grep 'lunaos-mirrorlist' \
+            | grep '.pkg.tar.zst' \
+            | grep -v '.sig' \
+            | cut -d '"' -f 4)
+
+          # Chaotic-AUR and yours repository keys
+          pacman-key --recv-key 3056513887B78AEB 78B2BAAB82C8D511 --keyserver keyserver.ubuntu.com
+          pacman-key --lsign-key 3056513887B78AEB 78B2BAAB82C8D511
+
+          download_chaotic_package() {
+            local file="$1" url
+            for url in \
+              "https://cdn-mirror.chaotic.cx/chaotic-aur/$file" \
+              "https://geo-mirror.chaotic.cx/chaotic-aur/x86_64/$file"
+            do
+              echo "Downloading $file from $url"
+              if curl --silent --show-error --fail --location --retry 1 --retry-all-errors --retry-delay 2 \
+                --output "/tmp/$file" "$url"; then
+                return 0
+              fi
+              echo "Mirror failed; trying the next Chaotic-AUR mirror."
+            done
+            echo "Could not download $file from any Chaotic-AUR mirror." >&2
+            return 1
+          }
+          download_chaotic_package chaotic-keyring.pkg.tar.zst
+          download_chaotic_package chaotic-mirrorlist.pkg.tar.zst
+          pacman -U --noconfirm /tmp/chaotic-keyring.pkg.tar.zst /tmp/chaotic-mirrorlist.pkg.tar.zst
+
+          pacman -U --noconfirm "$LUNA_KEYRING_URL"
+          pacman -U --noconfirm "$LUNA_MIRRORLIST_URL"
+          pacman-key --populate
+
+          mkdir -p /etc/gnupg && echo "auto-key-retrieve" >> /etc/gnupg/gpg.conf
+
+          # A proper git configuration is required to build some packages.
+          git config --global user.email "you@example.com"
+          git config --global user.name "Your Name"
+
+          # Enable the multilib repository
+          cat << EOM >> /etc/pacman.conf
+          [multilib]
+          Include = /etc/pacman.d/mirrorlist
+
+          [lunaos-repo]
+          Include = /etc/pacman.d/lunaos-mirrorlist
+          SigLevel = Never
+
+          [chaotic-aur]
+          Include = /etc/pacman.d/chaotic-mirrorlist
+          SigLevel = Never
+          EOM
+
+          pacman -Syy
+
+          useradd -m user -G wheel && echo "user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+          echo "PACKAGER=\"LunaOS Team\"" >> /etc/makepkg.conf
+          echo "GPGKEY=\"78B2BAAB82C8D511\"" >> /etc/makepkg.conf
+          mkdir -p "$PKGDEST"
+          release_error="$RUNNER_TEMP/lunaos-release-error"
+          release_endpoint="repos/$GH_REPO/releases/tags/$repo"
+          if gh api "$release_endpoint" --jq '.assets[] | [.name, .browser_download_url] | @tsv' \
+            > "$RUNNER_TEMP/lunaos-release-downloads.tsv" 2>"$release_error"; then
+            while IFS=$'\t' read -r asset_name asset_url; do
+              [ -n "$asset_name" ] || continue
+              case "$asset_name" in */*|*\\*) echo "Unsafe release asset name: $asset_name" >&2; exit 1 ;; esac
+              case "$asset_url" in https://github.com/Lenuma-inc/lunaos-repo/releases/download/*) ;; *)
+                echo "Unexpected release asset URL: $asset_url" >&2; exit 1 ;;
+              esac
+              if ! curl --silent --show-error --fail --location --retry 2 --retry-all-errors \
+                --output "$PKGDEST/$asset_name" "$asset_url"; then
+                rm -f "$PKGDEST/$asset_name"
+                echo "Warning: could not download release asset $asset_name; buildbot may rebuild it." >&2
+              fi
+            done < "$RUNNER_TEMP/lunaos-release-downloads.tsv"
+          elif grep -q 'HTTP 404' "$release_error"; then
+            echo "No previous lunaos-repo release; starting with an empty package cache."
+          else
+            cat "$release_error" >&2
+            exit 1
+          fi
+          chown user -R "$PKGDEST"
+          chown user -R /tmp
+          chown user -R "$GITHUB_WORKSPACE"
 
       - name: Import GPG private key
         uses: crazy-max/ghaction-import-gpg@v7
         with:
-          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.PASSPHRASE }}
+          gpg_private_key: ${{ env.GPG_PRIVATE_KEY }}
+          passphrase: ${{ env.GPG_PASSPHRASE }}
           trust_level: 5
 
       - name: Maximize build space
@@ -140,51 +221,83 @@ jobs:
         run: python3 "$GITHUB_WORKSPACE/buildbot.py"
 
       - name: Sign lunaos repo
-        if: steps.buildbot.outputs.fatal == '0' && steps.buildbot.outputs.packages_built != '0'
-        env:
-          GPG_PASSPHRASE: ${{ secrets.PASSPHRASE }}
-        run: sh "$GITHUB_WORKSPACE/sign.sh" 2>&1 | tee "$BUILDBOT_LOGDIR/sign.log"
+        if: steps.buildbot.outputs.packages_built != '0'
+        run: sh "$GITHUB_WORKSPACE/sign.sh"
 
       - name: Update lunaos repo database
-        if: steps.buildbot.outputs.fatal == '0' && steps.buildbot.outputs.packages_built != '0'
-        env:
-          GPG_PASSPHRASE: ${{ secrets.PASSPHRASE }}
-        run: sh "$GITHUB_WORKSPACE/update-repo.sh" 2>&1 | tee "$BUILDBOT_LOGDIR/database.log"
+        if: steps.buildbot.outputs.packages_built != '0'
+        run: sh "$GITHUB_WORKSPACE/update-repo.sh"
 
       - name: Publish repository release
-        if: steps.buildbot.outputs.fatal == '0' && steps.buildbot.outputs.packages_built != '0'
-        timeout-minutes: 30
-        run: bash "$GITHUB_WORKSPACE/publish-repo.sh" 2>&1 | tee "$BUILDBOT_LOGDIR/publish.log"
+        if: steps.buildbot.outputs.packages_built != '0'
+        run: |
+          release_endpoint="repos/$GH_REPO/releases/tags/$repo"
+          release_error="$RUNNER_TEMP/lunaos-release-error"
+          if release_id=$(gh api "$release_endpoint" --jq .id 2>"$release_error"); then
+            :
+          elif grep -q 'HTTP 404' "$release_error"; then
+            gh release create "$repo" --title "LunaOS package repository" --notes "Updated package repository"
+            release_id=$(gh api "$release_endpoint" --jq .id)
+          else
+            cat "$release_error" >&2
+            exit 1
+          fi
+          gh api --paginate --jq '.[] | [.id, .name] | @tsv' \
+            "repos/$GH_REPO/releases/$release_id/assets" > "$RUNNER_TEMP/lunaos-release-assets.tsv"
+          delete_release_asset() {
+            local asset_id="$1" attempt error_file="$RUNNER_TEMP/lunaos-delete-asset-error"
+            for attempt in 1 2 3; do
+              if gh api --method DELETE "repos/$GH_REPO/releases/assets/$asset_id" >/dev/null 2>"$error_file"; then
+                return 0
+              fi
+              [ "$attempt" -eq 3 ] || sleep "$attempt"
+            done
+            cat "$error_file" >&2
+            return 1
+          }
+          while IFS=$'\t' read -r asset_id asset; do
+            case "$asset" in */*|*\\*) echo "Unsafe release asset name: $asset" >&2; exit 1 ;; esac
+            if [ -e "$PKGDEST/$asset" ]; then
+              delete_release_asset "$asset_id"
+            fi
+          done < "$RUNNER_TEMP/lunaos-release-assets.tsv"
+          gh release upload "$repo" "$PKGDEST"/*
+          while IFS=$'\t' read -r asset_id asset; do
+            [ -e "$PKGDEST/$asset" ] || delete_release_asset "$asset_id"
+          done < "$RUNNER_TEMP/lunaos-release-assets.tsv"
+          gh api --method PATCH "repos/$GH_REPO/releases/$release_id" -F draft=true
+          gh api --method PATCH "repos/$GH_REPO/releases/$release_id" -F draft=false
 
       - name: Upload repository to S3
-        timeout-minutes: 30
-        if: steps.buildbot.outputs.fatal == '0' && steps.buildbot.outputs.packages_built != '0'
+        if: steps.buildbot.outputs.packages_built != '0'
         env:
           FTP_SERVER: ftp.ru1.storage.beget.cloud
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
           LOCAL_DIR: ${{ env.PKGDEST }}/
           SERVER_DIR: ${{ secrets.S3_BUCKET_NAME }}/lunaos-repo/
-        run: bash "$GITHUB_WORKSPACE/upload-repo.sh" 2>&1 | tee "$BUILDBOT_LOGDIR/upload.log"
+        run: |
+          lftp -c "
+            set cmd:fail-exit yes
+            set ftp:ssl-force yes
+            set ssl:check-hostname no
+            set mirror:set-permissions false
+            open -u $FTP_USERNAME,$FTP_PASSWORD $FTP_SERVER
+            mirror --reverse --only-newer --delete --parallel=4 --dereference --verbose $LOCAL_DIR $SERVER_DIR
+          "
 
       - name: Save package state
-        if: success() && steps.buildbot.outputs.fatal == '0' && hashFiles('.build-state/state.json') != ''
-        uses: actions/cache/save@v5
+        if: success() && hashFiles('.build-state/state.json') != ''
+        uses: actions/cache/save@v6
         with:
           path: .build-state
-          key: lunaos-package-state-v2-${{ github.run_id }}-${{ github.run_attempt }}
-
-      - name: Final diagnostics
-        if: always()
-        run: |
-          mkdir -p "$BUILDBOT_LOGDIR"
-          { date -u; df -h; free -h; ps -eo pid,ppid,comm,etime; } > "$BUILDBOT_LOGDIR/final-environment.log"
+          key: lunaos-package-state-${{ github.run_id }}
 
       - name: Upload build logs and state
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: lunaos-build-logs-${{ github.run_id }}-${{ github.run_attempt }}
+          name: lunaos-build-logs-${{ github.run_id }}
           path: |
             build-logs/
             .build-state/state.json
@@ -192,5 +305,5 @@ jobs:
           retention-days: 30
 
       - name: Fail run when packages failed
-        if: always() && (steps.buildbot.outcome == 'failure' || (steps.buildbot.outputs.failed != '' && steps.buildbot.outputs.failed != '0'))
+        if: always() && steps.buildbot.outputs.failed != '0'
         run: exit 1

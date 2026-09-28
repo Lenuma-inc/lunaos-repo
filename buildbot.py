@@ -3,6 +3,7 @@
 
 import csv
 import datetime as dt
+from functools import cmp_to_key
 import json
 import os
 import re
@@ -10,7 +11,10 @@ import shlex
 import shutil
 import signal
 import sys
+import tempfile
 import time
+import tomllib
+from urllib.parse import quote, urlsplit
 from pathlib import Path
 
 from buildbot_runtime import Runtime, atomic_json
@@ -103,6 +107,13 @@ def clone(row, expected=None):
     return path, revision
 
 
+def build_inputs_changed(path, previous, current):
+    """Ignore nvchecker-only commits when deciding whether a pkgrel was missed."""
+    run(["runuser", "-u", "user", "--", "git", "fetch", "--depth", "1", "origin", previous], cwd=path)
+    files = run(["runuser", "-u", "user", "--", "git", "diff", "--name-only", previous, current], cwd=path).splitlines()
+    return any(Path(name).name != ".nvchecker.toml" for name in files)
+
+
 def srcinfo(path):
     file = path / ".SRCINFO"
     if (path / "PKGBUILD").is_file():
@@ -112,11 +123,14 @@ def srcinfo(path):
         text = file.read_text()
     deps, build_deps, provides, names, architectures = set(), set(), set(), set(), set()
     version = {}
+    pkgbase = None
     for line in text.splitlines():
         key, sep, value = line.strip().partition(" = ")
         if not sep:
             continue
-        if key == "pkgname":
+        if key == "pkgbase":
+            pkgbase = value
+        elif key == "pkgname":
             names.add(value)
         elif key in {"epoch", "pkgver", "pkgrel"}:
             version[key] = value
@@ -132,11 +146,18 @@ def srcinfo(path):
         raise RuntimeError(f"{path}/.SRCINFO contains no package names")
     info = {"deps": sorted(deps), "provides": sorted(provides), "names": sorted(names),
             "build_deps": sorted(build_deps), "architectures": sorted(architectures)}
+    if pkgbase:
+        info["pkgbase"] = pkgbase
     if version.get("pkgver") and version.get("pkgrel"):
         epoch = version.get("epoch", "0")
         info["version"] = (f"{epoch}:" if epoch != "0" else "") + version["pkgver"] + "-" + version["pkgrel"]
     pkgbuild = (path / "PKGBUILD").read_text() if (path / "PKGBUILD").exists() else ""
+    nvchecker = path / ".nvchecker.toml"
+    if nvchecker.is_file():
+        info["nvchecker_config"] = nvchecker.read_text()
     info["dynamic_version"] = bool(re.search(r"(?m)^\s*(?:function\s+)?pkgver\s*\(\)", pkgbuild))
+    if (path / ".git").exists():
+        info["source_timestamp"] = int(run(["runuser", "-u", "user", "--", "git", "show", "-s", "--format=%ct", "HEAD"], cwd=path))
     return info
 
 
@@ -147,6 +168,40 @@ def package_info(path):
         return info
     except Exception as exc:
         raise RuntimeError(f"cannot read .SRCINFO: {exc}") from exc
+
+
+def nvchecker_config_url(row, revision):
+    if not lunaos_source(row):
+        return None
+    source = urlsplit(row["url"].removesuffix(".git"))
+    path = source.path.strip("/")
+    if source.hostname == "gitlab.com":
+        return f"https://gitlab.com/{path}/-/raw/{quote(revision, safe='')}/.nvchecker.toml"
+    if source.hostname == "github.com" and len(path.split("/")) == 2:
+        return f"https://raw.githubusercontent.com/{path}/{revision}/.nvchecker.toml"
+    return None
+
+
+def fetch_nvchecker_config(row, revision):
+    url = nvchecker_config_url(row, revision)
+    if not url:
+        return ""
+    for attempt in range(1, 4):
+        try:
+            output = run(["curl", "--silent", "--show-error", "--location", "--max-time", "30",
+                          "--write-out", "\\n%{http_code}", url], check=False, timeout=40)
+            body, _, status = output.rpartition("\n")
+            if status == "200":
+                return body
+            if status == "404":
+                return ""
+            raise RuntimeError(f"HTTP {status or 'request failed'} for nvchecker config")
+        except Exception as exc:
+            if attempt == 3:
+                raise
+            log("nvchecker-config-retry", package=row["directory"], attempt=attempt, error=str(exc))
+            time.sleep(attempt * 2)
+    return ""
 
 
 def graph(packages, metadata):
@@ -177,9 +232,222 @@ def graph(packages, metadata):
 def archive_info(path):
     info = run(["bsdtar", "-xOf", str(path), ".PKGINFO"])
     parsed = {key: value for line in info.splitlines() if (key := line.partition(" = ")[0]) and (value := line.partition(" = ")[2])}
+    parsed["depends"] = [re.split(r"[<>=]", line.partition(" = ")[2], maxsplit=1)[0]
+                         for line in info.splitlines() if line.startswith("depend = ")]
     if not all(parsed.get(key) for key in ("pkgname", "pkgver", "arch")):
         raise RuntimeError(f"invalid package archive: {path}")
+    buildinfo = run(["bsdtar", "-xOf", str(path), ".BUILDINFO"], check=False)
+    for line in buildinfo.splitlines():
+        key, sep, value = line.partition(" = ")
+        if not sep:
+            continue
+        if key == "builddate":
+            parsed["builddate"] = value
+        elif key == "installed":
+            parsed.setdefault("installed", []).append(value)
+    provenance_path = Path(str(path) + ".buildbot.json")
+    if provenance_path.is_file():
+        try:
+            provenance = json.loads(provenance_path.read_text())
+            if provenance.get("pkgname") == parsed["pkgname"] and provenance.get("pkgver") == parsed["pkgver"]:
+                parsed["buildbot"] = provenance
+        except (OSError, ValueError):
+            pass
     return parsed
+
+
+def installed_package_version(installed, name):
+    for entry in installed:
+        if not entry.startswith(name + "-"):
+            continue
+        version = entry[len(name) + 1:].rsplit("-", 2)
+        if len(version) == 3 and version[2] in {"any", "x86_64"}:
+            return f"{version[0]}-{version[1]}"
+    return None
+
+
+def archive_elf(path, provider=False):
+    """Read linked sonames and dynamic symbols from host ELF files in a package."""
+    names = run(["bsdtar", "-tf", str(path)]).splitlines()
+    verbose = run(["bsdtar", "-tvf", str(path)]).splitlines()
+    candidates = set()
+    for line in verbose:
+        fields = line.split(maxsplit=5)
+        if (len(fields) == 6 and fields[0].startswith("-") and not fields[5].endswith("/")
+                and ("x" in fields[0] or re.search(r"\.so(?:\.[0-9]+)*$", fields[5]))):
+            candidates.add(fields[5])
+    candidates = {name for name in candidates if not Path(name).is_absolute() and ".." not in Path(name).parts}
+    if len(candidates) > 5000:
+        raise RuntimeError(f"ELF scan candidate limit exceeded in {path}: {len(candidates)}")
+
+    needed, provided, imports, exports_by_soname, python_dirs = set(), set(), set(), {}, set()
+    for name in names:
+        match = re.match(r"(?:usr/)?lib/python(3\.\d+)/", name)
+        if match:
+            python_dirs.add(match[1])
+    with tempfile.TemporaryDirectory(prefix="buildbot-elf-") as temp:
+        for offset in range(0, len(candidates), 400):
+            run(["bsdtar", "-xf", str(path), "-C", temp, "--", *sorted(candidates)[offset:offset + 400]])
+        for name in sorted(candidates):
+            file = Path(temp) / name
+            header = run(["readelf", "-h", str(file)], check=False)
+            if ("Class:" not in header or "ELF64" not in header or "Machine:" not in header or "X86-64" not in header
+                    or not re.search(r"OS/ABI:\s+UNIX - (?:System V|GNU)", header)):
+                continue
+            dynamic = run(["readelf", "-dW", str(file)], check=False)
+            needed.update(re.findall(r"\(NEEDED\).*\[([^]]+)\]", dynamic))
+            soname = re.search(r"\(SONAME\).*\[([^]]+)\]", dynamic)
+            if soname:
+                provided.add(soname[1])
+            undefined = run(["nm", "-D", "--undefined-only", str(file)], check=False)
+            for line in undefined.splitlines():
+                fields = line.split()
+                if len(fields) >= 2 and fields[-2] == "U":
+                    imports.add(fields[-1])
+            if provider and re.search(r"\.so(?:\.[0-9]+)*$", name):
+                defined = run(["nm", "-D", "--defined-only", str(file)], check=False)
+                if soname:
+                    exports_by_soname.setdefault(soname[1], set()).update(
+                        line.split()[-1] for line in defined.splitlines() if len(line.split()) >= 2)
+    return {"needed": needed, "provided": provided, "imports": imports,
+            "exports_by_soname": exports_by_soname, "python_dirs": python_dirs}
+
+
+def arch_archive(package, version, destination):
+    plain_version = version.split(":", 1)[-1]
+    url = (f"https://archive.archlinux.org/packages/{package[0]}/{package}/"
+           f"{package}-{plain_version}-x86_64.pkg.tar.zst")
+    run(["curl", "--fail", "--location", "--silent", "--show-error", "--retry", "2",
+         "--output", str(destination), url])
+    info = archive_info(destination)
+    if info["pkgname"] != package or info["pkgver"].split(":", 1)[-1] != plain_version:
+        raise RuntimeError(f"Arch Archive returned unexpected package for {package} {version}")
+    return destination
+
+
+def current_arch_archive(package, destination):
+    run(["pacman", "-Sw", "--noconfirm", "--nodeps", "--cachedir", str(destination.parent), package])
+    matches = list(destination.parent.glob(f"{package}-*.pkg.tar.zst"))
+    if len(matches) != 1:
+        raise RuntimeError(f"expected one current archive for {package}, found {len(matches)}")
+    if matches[0] != destination:
+        matches[0].replace(destination)
+    info = archive_info(destination)
+    expected = arch_version(package)
+    if (info["pkgname"] != package or
+            (expected and info["pkgver"].split(":", 1)[-1] != expected.split(":", 1)[-1])):
+        raise RuntimeError(f"Arch returned unexpected current package for {package}: {info['pkgver']} != {expected}")
+    return destination
+
+
+def arch_version(package):
+    for repo in ("core", "extra", "multilib"):
+        result = run(["pacman", "-Si", f"{repo}/{package}"], check=False)
+        version = re.search(r"^Version\s*:\s*(.+)$", result, re.MULTILINE)
+        if version:
+            return version[1].strip()
+    return None
+
+
+def symbol_key(symbol):
+    name, _, version = symbol.partition("@")
+    return name, version.lstrip("@")
+
+
+def elf_rebuild_triggers(packages, published, available, previous, refs, metadata):
+    """Find published LunaOS packages that lost an ELF ABI or Python runtime path."""
+    python_version = arch_version("python") or available.get("python", "")
+    current_python = re.match(r"(?:[0-9]+:)?([0-9]+\.[0-9]+)", python_version)
+    triggers, provider_cache, version_cache = {}, {}, {}
+    for package, archive in published.items():
+        owner = packages.get(package) or packages.get(archive.get("pkgbase", ""))
+        if not owner or not lunaos_source(owner):
+            continue
+        directory = owner["directory"]
+        old_state = previous.get(directory, {})
+        if (old_state.get("abi_pending") and old_state.get("pending_source") == refs.get(directory)
+                and not published_source_matches(metadata.get(directory, {}), published, refs.get(directory, ""))):
+            continue
+        old_python = (installed_package_version(archive.get("installed", []), "python") or
+                      old_state.get("dependency_versions", {}).get("python"))
+        old_python_match = re.match(r"(?:[0-9]+:)?([0-9]+\.[0-9]+)", old_python or "")
+        python_candidate = bool(current_python and old_python_match and old_python_match[1] != current_python[1])
+        changed_providers = []
+        for dependency in archive.get("depends", []):
+            old_version = (installed_package_version(archive.get("installed", []), dependency) or
+                           old_state.get("dependency_versions", {}).get(dependency))
+            if dependency not in version_cache:
+                version_cache[dependency] = arch_version(dependency)
+            new_version = version_cache[dependency]
+            if not old_version or not new_version or int(run(["vercmp", old_version, new_version])) == 0:
+                continue
+            changed_providers.append((dependency, old_version, new_version))
+        if not changed_providers and not python_candidate:
+            continue
+        try:
+            consumer = archive_elf(archive["_path"])
+        except Exception as exc:
+            log("abi-consumer-scan-failed", package=package, error=str(exc))
+            continue
+        reasons, version_changes = [], {}
+        if python_candidate and old_python_match[1] in consumer["python_dirs"]:
+            reasons.append(f"Python files remain under python{old_python_match[1]} (current Python is {current_python[1]})")
+            version_changes["python"] = (old_python, python_version)
+
+        for dependency, old_version, new_version in changed_providers:
+            key = (dependency, old_version, new_version)
+            if key not in provider_cache:
+                try:
+                    with tempfile.TemporaryDirectory(prefix="buildbot-abi-provider-") as temp:
+                        old_path = arch_archive(dependency, old_version, Path(temp) / "old.pkg.tar.zst")
+                        new_path = current_arch_archive(dependency, Path(temp) / "new.pkg.tar.zst")
+                        provider_cache[key] = (archive_elf(old_path, provider=True), archive_elf(new_path, provider=True))
+                except Exception as exc:
+                    provider_cache[key] = exc
+                    log("abi-provider-scan-failed", dependency=dependency,
+                        old=old_version, current=new_version, error=str(exc))
+            old_provider, new_provider = provider_cache[key] if not isinstance(provider_cache[key], Exception) else (None, None)
+            if not old_provider:
+                continue
+            lost_sonames = consumer["needed"] & old_provider["provided"] - new_provider["provided"]
+            required = {symbol_key(item) for item in consumer["imports"]}
+            lost_symbols = set()
+            for soname in consumer["needed"] & old_provider["provided"] & new_provider["provided"]:
+                old_exports = {symbol_key(item) for item in old_provider["exports_by_soname"].get(soname, ())}
+                new_exports = {symbol_key(item) for item in new_provider["exports_by_soname"].get(soname, ())}
+                lost_symbols.update(required & (old_exports - new_exports))
+            lost_symbols = sorted(lost_symbols)
+            if lost_sonames or lost_symbols:
+                detail = []
+                if lost_sonames:
+                    detail.append("missing SONAMEs " + ", ".join(sorted(lost_sonames)))
+                if lost_symbols:
+                    detail.append("missing symbols " + ", ".join(f"{name}@{version}" if version else name
+                                                                      for name, version in lost_symbols[:8]))
+                reasons.append(f"{dependency} {old_version} → {new_version}: " + "; ".join(detail))
+                version_changes[dependency] = (old_version, new_version)
+        if reasons:
+            trigger = triggers.setdefault(directory, {"versions": {}, "reasons": [],
+                                                      "published_version": archive["pkgver"]})
+            trigger["versions"].update(version_changes)
+            trigger["reasons"].extend(reasons)
+    for trigger in triggers.values():
+        trigger["reason"] = "; ".join(dict.fromkeys(trigger.pop("reasons")))
+    return triggers
+
+
+def published_source_matches(info, published, revision):
+    archives = [published.get(name) for name in info.get("names", [])]
+    if not archives or any(archive is None for archive in archives):
+        return False
+    provenance = [archive.get("buildbot", {}) for archive in archives]
+    if all(item.get("source_revision") for item in provenance):
+        return all(item["source_revision"] == revision or
+                   item.get("source_tree") == info.get("tree") for item in provenance)
+    # ponytail: legacy packages lack source hashes; build date is a bootstrap heuristic, exact sidecars replace it.
+    source_timestamp = info.get("source_timestamp")
+    return bool(source_timestamp and all(
+        archive.get("builddate") and int(archive["builddate"]) > source_timestamp for archive in archives))
 
 
 def published_packages():
@@ -188,13 +456,31 @@ def published_packages():
         if info := archive_info(path):
             if name := info.get("pkgname"):
                 if name in result:
-                    raise RuntimeError(f"multiple published archives for {name}: {result[name]['_path']}, {path}")
+                    previous = result[name]
+                    comparison = int(run(["vercmp", info["pkgver"], previous["pkgver"]]))
+                    if comparison == 0:
+                        raise RuntimeError(f"duplicate published archives for {name} at {info['pkgver']}: "
+                                           f"{previous['_path']}, {path}")
+                    stale_info = previous if comparison > 0 else info
+                    stale = Path(stale_info["_path"]) if comparison > 0 else path
+                    current = info if comparison > 0 else previous
+                    stale.unlink()
+                    log("stale-published-archive-pruned", package=name, stale_version=stale_info["pkgver"],
+                        path=str(stale), kept=current["pkgver"])
+                    if comparison < 0:
+                        continue
                 info["_path"] = str(path)
                 result[name] = info
     return result
 
 
-def create_pkgrel_issue(name, row, revision, current, published, dependency_changes):
+def lunaos_source(row):
+    return row["url"].startswith("https://gitlab.com/LunaOS/")
+
+
+def create_pkgrel_issue(name, row, revision, current, published, dependency_changes, reason=None):
+    if not lunaos_source(row):
+        raise ValueError(f"cannot request a pkgrel change in unmaintained source: {row['url']}")
     title = f"[rebuild] {name}: bump pkgrel"
     marker = f"<!-- lunaos-buildbot:rebuild:{name}:{revision}:{current}:{published} -->"
     issues = json.loads(run(["gh", "issue", "list", "--state", "all", "--search", f'"{title}" in:title',
@@ -207,12 +493,19 @@ def create_pkgrel_issue(name, row, revision, current, published, dependency_chan
     changed = ", ".join(f"`{dep}` {old} → {new}" for dep, (old, new) in dependency_changes.items()) or "package source changed"
     source = row["url"].removesuffix(".git")
     source_link = f"{source}/-/tree/{revision}" if "gitlab" in source else f"{source}/tree/{revision}"
-    body = (
-        f"A rebuild of `{name}` produced `{current}`, which does not upgrade the published `{published}`.\n\n"
-        f"Please bump `pkgrel` (or update `pkgver` if needed) in the [package source]({source_link}) and push the change. "
-        "The buildbot will retry after the source changes.\n\n"
-        f"Trigger: {changed}\n\nSource revision: `{revision}`\n\n{marker}"
-    )
+    if reason:
+        explanation = (f"The Buildbot ABI/runtime scan found that `{name}` needs a rebuild: {reason}. "
+                       f"LunaOS publishes `{published}`; Buildbot checked source revision `{revision}`. "
+                       "Update or rebuild this package source and increase `pkgrel` when needed.")
+    elif dependency_changes:
+        explanation = (f"A declared dependency of `{name}` changed ({changed}), but the source still produces "
+                       f"`{current}`, the same version LunaOS publishes. Rebuild the package and bump `pkgrel` "
+                       "in its source so the new archive can upgrade the published package.")
+    else:
+        explanation = (f"A source change for `{name}` still produces `{current}`, the same version LunaOS publishes. "
+                       "Bump `pkgrel` (or update `pkgver` if needed) in its source.")
+    body = (f"{explanation}\n\n[Package source]({source_link})\n\nTrigger: {changed}"
+            f"\n\nSource revision: `{revision}`\n\n{marker}")
     body_path = LOGDIR / f"{name}-issue.md"
     body_path.write_text(body)
     url = run(["gh", "issue", "create", "--title", title, "--body-file", str(body_path)])
@@ -229,8 +522,10 @@ def check_arch_updates(packages, published, metadata):
         issues = json.loads(run(["gh", "issue", "list", "--state", "all", "--limit", "1000", "--json", "number,title,state,body"]))
     except Exception as exc:
         log("arch-issues-unavailable", error=str(exc))
-        return
+        return set(), {}
     checked = set()
+    updates = set()
+    arch_versions = {}
     for package_name, current in published.items():
         owner = packages.get(package_name) or packages.get(current.get("pkgbase", ""))
         if not owner:
@@ -255,6 +550,10 @@ def check_arch_updates(packages, published, metadata):
             if not arch_version:
                 continue
             checked.add(name)
+            arch_versions[name] = arch_version
+            if existing and int(run(["vercmp", upstream_version(arch_version),
+                                     upstream_version(current["pkgver"])])) > 0:
+                updates.add(name)
             target = metadata.get(name, {}).get("version", current["pkgver"])
             if int(run(["vercmp", upstream_version(arch_version), upstream_version(target)])) <= 0:
                 continue
@@ -275,9 +574,158 @@ def check_arch_updates(packages, published, metadata):
             body_path.write_text(body)
             url = run(["gh", "issue", "create", "--title", title, "--body-file", str(body_path)])
             issues.append({"number": int(url.rstrip("/").rsplit("/", 1)[-1]), "title": title, "state": "OPEN", "body": body})
+            updates.add(name)
             log("arch-update", name=name, published=current["pkgver"], upstream=arch_version)
         except Exception as exc:
             log("arch-check-failed", name=package_name, error=str(exc))
+    return updates, arch_versions
+
+
+def check_nvchecker_updates(packages, published, metadata, arch_updates):
+    updates, versions = set(), {}
+    WORK.mkdir(parents=True, exist_ok=True)
+    candidates = [(name, info) for name, info in metadata.items()
+                  if info.get("nvchecker_config") and name in packages and
+                  name not in arch_updates and lunaos_source(packages[name])]
+    if not candidates:
+        return updates, versions
+    try:
+        issues = json.loads(run(["gh", "issue", "list", "--state", "open", "--limit", "1000",
+                                 "--json", "number,title,body"]))
+    except Exception as exc:
+        log("nvchecker-issues-unavailable", error=str(exc))
+        issues = []
+    for name, info in candidates:
+        config_text = info.get("nvchecker_config")
+        try:
+            config = tomllib.loads(config_text)
+            pkgbase = info.get("pkgbase", name)
+            if pkgbase not in config:
+                raise ValueError(f".nvchecker.toml has no [{pkgbase}] section")
+            config_path = WORK / f"{name}.nvchecker.toml"
+            config_path.write_text(config_text)
+            output = run(["runuser", "-u", "user", "--", "env", "GIT_CONFIG_GLOBAL=/dev/null",
+                          "GIT_CONFIG_SYSTEM=/dev/null", "nvchecker", "--file", config_path,
+                          "--logger", "json", "--json-log-fd=1"], cwd=WORK)
+            result = None
+            for line in output.splitlines():
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if event.get("name") == pkgbase and event.get("event") in {"updated", "up-to-date"}:
+                    result = event
+                    break
+            if not result:
+                raise RuntimeError(f"nvchecker returned no version for {pkgbase}")
+            version = result["version"]
+            versions[name] = version
+            published_version = next((published[pkg]["pkgver"] for pkg in info["names"] if pkg in published), None)
+            source_version = info.get("version")
+            current = source_version or published_version
+            if current and published_version and int(run(["vercmp", published_version, current])) > 0:
+                current = published_version
+            if not current or int(run(["vercmp", version, upstream_version(current)])) <= 0:
+                continue
+            title = f"[update] {name}: update upstream package"
+            if any(issue["title"] == title for issue in issues):
+                updates.add(name)
+                continue
+            marker = f"<!-- lunaos-buildbot:nvchecker:{name}:{version} -->"
+            body = (f"nvchecker found upstream version `{version}` for `{name}`. The package source declares "
+                    f"`{upstream_version(source_version or current)}`; LunaOS publishes `{published_version or current}`.\n\n"
+                    "Update the package source to the upstream version and carry LunaOS changes forward.\n\n"
+                    f"[Package source]({packages[name]['url'].removesuffix('.git')})\n\n{marker}")
+            body_path = LOGDIR / f"{name}-nvchecker-issue.md"
+            body_path.write_text(body)
+            url = run(["gh", "issue", "create", "--title", title, "--body-file", body_path])
+            issue = {"number": int(url.rstrip("/").rsplit("/", 1)[-1]),
+                     "title": title, "body": body}
+            issues.append(issue)
+            updates.add(name)
+            log("nvchecker-update", current=upstream_version(current), upstream=version,
+                issue=issue["number"])
+        except Exception as exc:
+            log("nvchecker-check-failed", name=name, error=str(exc))
+    return updates, versions
+
+
+def cleanup_issues(packages, published, metadata, arch_updates, arch_versions, metadata_only_changes=None):
+    metadata_only_changes = metadata_only_changes or {}
+    try:
+        issues = json.loads(run(["gh", "issue", "list", "--state", "open", "--limit", "1000",
+                                 "--json", "number,title,body"]))
+    except Exception as exc:
+        log("issue-cleanup-unavailable", error=str(exc))
+        return
+
+    def package_version(name):
+        versions = [info["pkgver"] for package, info in published.items()
+                    if (owner := packages.get(package) or packages.get(info.get("pkgbase", "")))
+                    and owner["directory"] == name]
+        return max(versions, key=cmp_to_key(lambda left, right: int(run(["vercmp", left, right])))) if versions else None
+
+    for issue in issues:
+        title, body = issue["title"], issue.get("body", "")
+        match = re.fullmatch(r"\[(rebuild|update)\] ([^:]+): (bump pkgrel|sync Arch package|update upstream package)", title)
+        if not match:
+            continue
+        kind, name, _ = match.groups()
+        legacy_bot_issue = (
+            kind == "rebuild" and body.startswith((
+                f"A rebuild of `{name}` produced `",
+                f"A declared dependency of `{name}` changed (",
+                f"A source change for `{name}` still produces `",
+            )) and
+            "\n\nSource revision: `" in body or
+            kind == "update" and body.startswith("Arch has `") and
+            "Update this patched package to the current Arch version and carry its LunaOS changes forward." in body
+        )
+        reason = None
+        if kind == "rebuild" and (legacy_bot_issue or f"<!-- lunaos-buildbot:rebuild:{name}:" in body):
+            owner = packages.get(name)
+            revision = re.search(r"Source revision: `([0-9a-f]+)`", body)
+            if revision and metadata_only_changes.get(name) == revision[1]:
+                reason = "Obsolete: this source revision changes nvchecker metadata only."
+            elif not owner or not lunaos_source(owner):
+                reason = "Obsolete: this package is no longer built from a LunaOS-maintained source."
+            elif name in arch_updates:
+                reason = "Superseded by the open Arch update issue."
+            else:
+                info = metadata.get(name, {})
+                if revision and published_source_matches(info, published, revision[1]):
+                    reason = f"Resolved: published archive already contains source revision `{revision[1]}`."
+                else:
+                    old = (re.search(r"does not upgrade the published `([^`]+)`", body) or
+                           re.search(r"same version LunaOS publishes `([^`]+)`", body) or
+                           re.search(r"LunaOS currently publishes `([^`]+)`", body))
+                    current = package_version(name)
+                    if old and current and int(run(["vercmp", current, old[1]])) > 0:
+                        reason = f"Resolved: LunaOS now publishes `{current}`."
+        elif kind == "update" and f"<!-- lunaos-buildbot:nvchecker:{name}:" in body:
+            owner = packages.get(name)
+            if not owner or not lunaos_source(owner):
+                reason = "Obsolete: this package is no longer built from a LunaOS-maintained source."
+            elif name in arch_updates:
+                reason = "Superseded by the Arch package update issue."
+            else:
+                target = re.search(rf"<!-- lunaos-buildbot:nvchecker:{re.escape(name)}:([^ >]+) -->", body)
+                current = package_version(name)
+                if target and current and int(run(["vercmp", upstream_version(current), target[1]])) >= 0:
+                    reason = f"Resolved: LunaOS publishes `{current}`, which includes upstream `{target[1]}`."
+        elif kind == "update" and (legacy_bot_issue or f"<!-- lunaos-buildbot:arch:{name}:" in body):
+            owner = packages.get(name)
+            if not owner or not lunaos_source(owner):
+                reason = "Obsolete: this package is no longer built from a LunaOS-maintained source."
+            current, upstream = package_version(name), arch_versions.get(name)
+            if not reason and current and upstream and int(run(["vercmp", upstream_version(upstream), upstream_version(current)])) <= 0:
+                reason = f"Resolved: LunaOS publishes `{current}`; Arch is at `{upstream}`."
+        if reason:
+            try:
+                run(["gh", "issue", "close", str(issue["number"]), "--comment", reason])
+                log("issue-closed", number=issue["number"], title=title, reason=reason)
+            except Exception as exc:
+                log("issue-close-failed", number=issue["number"], title=title, error=str(exc))
 
 
 def installed_versions():
@@ -354,9 +802,9 @@ def order(selected, dependencies):
     return result
 
 
-def emit_summary(results, changed, dependency_changes, selected):
+def emit_summary(results, changed, abi_triggers, selected):
     lines = ["## LunaOS package build", "",
-             f"Sources changed: {len(changed)} · Dependencies changed: {len(dependency_changes)} · Selected: {len(selected)}",
+             f"Sources changed: {len(changed)} · ABI rebuild issues: {len(abi_triggers)} · Selected: {len(selected)}",
              "", "| Package | Status | Details |", "|---|---|---|"]
     for name, result in sorted(results.items()):
         detail = RUNTIME.redact(result.get("detail", "")).replace("|", "\\|").replace("\n", "<br>")
@@ -426,7 +874,7 @@ def build_environment():
         word in key.upper() for word in ("TOKEN", "PASSWORD", "PASSPHRASE", "PRIVATE_KEY", "SECRET"))}
 
 
-def promote(built, infos, published):
+def promote(built, infos, published, source):
     """Prepare all copies before replacing old archives; roll back split packages on error."""
     import tempfile
     bases = {info.get("pkgbase", info["pkgname"]) for info in infos}
@@ -435,15 +883,18 @@ def promote(built, infos, published):
                 if name in names or info.get("pkgbase", name) in bases}
     with tempfile.TemporaryDirectory(prefix=".promote-", dir=PKGDEST) as temp:
         temporary = Path(temp)
-        for item in built:
+        for item, info in zip(built, infos):
             shutil.copy2(item, temporary / item.name)
+            provenance = {"pkgname": info["pkgname"], "pkgver": info["pkgver"], **source}
+            atomic_json(Path(str(item) + ".buildbot.json"), provenance)
+            shutil.copy2(Path(str(item) + ".buildbot.json"), temporary / (item.name + ".buildbot.json"))
         backup = temporary / "old"
         backup.mkdir()
         replaced, saved = [], []
         try:
             for info in obsolete.values():
                 old = Path(info["_path"])
-                for item in (old, old.with_name(old.name + ".sig")):
+                for item in (old, old.with_name(old.name + ".sig"), old.with_name(old.name + ".buildbot.json")):
                     if item.exists():
                         item.replace(backup / item.name)
                         saved.append(item)
@@ -453,6 +904,9 @@ def promote(built, infos, published):
                     raise RuntimeError(f"unexpected destination archive: {target}")
                 (temporary / item.name).replace(target)
                 replaced.append(target)
+                sidecar = target.with_name(target.name + ".buildbot.json")
+                (temporary / sidecar.name).replace(sidecar)
+                replaced.append(sidecar)
         except BaseException:
             for target in replaced:
                 target.unlink(missing_ok=True)
@@ -462,7 +916,8 @@ def promote(built, infos, published):
     for name in obsolete:
         published.pop(name)
     for item, info in zip(built, infos):
-        published[info["pkgname"]] = dict(info, _path=str(PKGDEST / item.name))
+        published[info["pkgname"]] = dict(info, _path=str(PKGDEST / item.name),
+                                          buildbot={"pkgname": info["pkgname"], "pkgver": info["pkgver"], **source})
 
 
 def main():
@@ -473,6 +928,7 @@ def main():
         raise RuntimeError("unknown package directory: " + ", ".join(sorted(unknown)))
     sources, previous = load_state(packages)
     refs, changed, results, revisions = {}, set(), {}, {}
+    metadata_only_changes = {}
     metadata = {name: previous.get(name, {}).get("metadata", {}) for name in packages}
     full = os.environ.get("BUILDBOT_FULL", "false").lower() == "true"
     published = published_packages()
@@ -492,7 +948,7 @@ def main():
         with RUNTIME.context(name):
             try:
                 refs[name] = source_sha(row)
-                if refs[name] != sources.get(name) and refs[name] != previous.get(name, {}).get("pending_source"):
+                if refs[name] != sources.get(name):
                     changed.add(name)
                 log("source-checked", revision=refs[name], previous=sources.get(name), changed=name in changed)
             except Exception as exc:
@@ -511,24 +967,61 @@ def main():
                 results[name] = {"status": "source-failed", "detail": RUNTIME.redact(str(exc))}
                 RUNTIME.exception("metadata-failed", exc)
 
+    for name, row in packages.items():
+        if name in results or not refs.get(name) or metadata[name].get("nvchecker_revision") == refs[name]:
+            continue
+        try:
+            if name not in revisions:
+                metadata[name]["nvchecker_config"] = fetch_nvchecker_config(row, refs[name])
+            metadata[name]["nvchecker_revision"] = refs[name]
+            log("nvchecker-config-checked", found=bool(metadata[name].get("nvchecker_config")),
+                revision=refs[name])
+        except Exception as exc:
+            RUNTIME.exception("nvchecker-config-failed", exc)
+
+    arch_updates, arch_versions = check_arch_updates(packages, published, metadata)
+    nvchecker_updates, nvchecker_versions = check_nvchecker_updates(
+        packages, published, metadata, arch_updates)
+    log("nvchecker-summary", checked=sorted(nvchecker_versions), updates=sorted(nvchecker_updates))
+    cleanup_issues(packages, published, metadata, arch_updates, arch_versions)
+
     dependencies, dependents = graph(packages, metadata)
     available = available_versions()
-    dependency_changes = {}
-    rebuild_deps = {dep.strip() for dep in os.environ.get("BUILDBOT_REBUILD_DEPS", "python").split(",") if dep.strip()}
-    for name, info in metadata.items():
-        old_versions = previous.get(name, {}).get("dependency_versions", {})
-        current = dependency_versions(info, available)
-        diff = {dep: (old_versions[dep], version) for dep, version in current.items()
-                if dep in rebuild_deps and dep in old_versions and old_versions[dep] != version}
-        # A pkgrel request is retried only after its source changes or manual selection.
-        if diff and previous.get(name, {}).get("status") != "needs-pkgrel":
-            dependency_changes[name] = diff
+    abi_triggers = elf_rebuild_triggers(packages, published, available, previous, refs, metadata)
+    inspect |= set(abi_triggers)
 
     # A lost cache is not evidence of a source change. Compare versions before
     # compiling; otherwise every cold run builds the whole release and files
     # pkgrel issues for packages it has just downloaded at the same version.
     for name in sorted(inspect - results.keys()):
         info = metadata[name]
+        issue_still_waiting = (previous.get(name, {}).get("abi_pending") and
+                               previous.get(name, {}).get("pending_source") == refs[name])
+        if name in abi_triggers and not full and name not in requested and not issue_still_waiting:
+            number = None
+            if name not in arch_updates:
+                try:
+                    number = create_pkgrel_issue(name, packages[name], refs[name],
+                                                 info.get("version", abi_triggers[name]["published_version"]),
+                                                 abi_triggers[name]["published_version"],
+                                                 abi_triggers[name]["versions"],
+                                                 abi_triggers[name]["reason"])
+                except Exception as exc:
+                    RUNTIME.exception("abi-rebuild-issue-failed", exc)
+            detail = "ABI/runtime break detected; waiting for source update"
+            if number:
+                detail += f"; issue #{number}"
+            elif name in arch_updates:
+                detail += "; Arch update issue is already open"
+            else:
+                detail += "; issue creation failed"
+            results[name] = {"status": "needs-pkgrel", "detail": detail}
+            previous[name] = {**previous.get(name, {}), "pending_source": refs[name],
+                              "status": "needs-pkgrel", "issue": number,
+                              "abi_pending": number is not None or name in arch_updates}
+            changed.discard(name)
+            log("abi-rebuild-required", status="needs-pkgrel", triggers=abi_triggers[name], issue=number)
+            continue
         if full or name in requested or not info.get("version"):
             continue
         if any(pkg not in published for pkg in info["names"]):
@@ -544,17 +1037,33 @@ def main():
             # A release can be newer than the cache after a publish/cache failure.
             # Only an observed change *within the same declared version* proves
             # a missing pkgrel bump; never infer that from a stale cache alone.
+            source_already_published = published_source_matches(info, published, refs[name])
+            inputs_changed = False
+            if sources.get(name) and refs[name] != sources[name] and not same_tree:
+                try:
+                    inputs_changed = build_inputs_changed(WORK / name, sources[name], refs[name])
+                    if not inputs_changed:
+                        metadata_only_changes[name] = refs[name]
+                except Exception as exc:
+                    log("source-diff-unavailable", previous=sources[name], current=refs[name], error=str(exc))
             known_change = bool((sources.get(name) and refs[name] != sources[name] and not same_tree and
-                                 old_info.get("version") == info["version"]) or name in dependency_changes)
+                                 old_info.get("version") == info["version"] and
+                                 inputs_changed and not source_already_published))
             if known_change and any(value == 0 for value in comparisons):
                 number = None
-                if os.environ.get("BUILDBOT_ISSUES", "false").lower() == "true":
-                    try:
-                        number = create_pkgrel_issue(name, packages[name], refs[name], info["version"],
-                                                     info["version"], {})
-                    except Exception as exc:
-                        RUNTIME.exception("pkgrel-issue-failed", exc)
-                results[name] = {"status": "needs-pkgrel", "detail": "source or tracked dependency changed without a newer package version; compilation skipped"}
+                if lunaos_source(packages[name]):
+                    detail = "source or tracked dependency changed without a newer package version; compilation skipped"
+                    if name in arch_updates:
+                        detail += "; rebuild issue suppressed because an Arch update issue is open"
+                    else:
+                        try:
+                            number = create_pkgrel_issue(name, packages[name], refs[name], info["version"],
+                                                         info["version"], {})
+                        except Exception as exc:
+                            RUNTIME.exception("pkgrel-issue-failed", exc)
+                else:
+                    detail = "AUR source produced the published version; no issue opened because LunaOS does not maintain this PKGBUILD"
+                results[name] = {"status": "needs-pkgrel", "detail": detail}
                 previous[name] = {**previous.get(name, {}), "pending_source": refs[name], "status": "needs-pkgrel", "issue": number}
             else:
                 results[name] = {"status": "up-to-date", "detail": "published version already satisfies source; compilation skipped"}
@@ -562,29 +1071,28 @@ def main():
                 previous[name] = {"metadata": info, "status": "up-to-date",
                                   "dependency_versions": dependency_versions(info, available)}
             changed.discard(name)
-            log("build-unnecessary", status=results[name]["status"], version=info["version"], same_tree=bool(same_tree))
+            log("build-unnecessary", status=results[name]["status"], version=info["version"],
+                same_tree=bool(same_tree), build_inputs_changed=inputs_changed,
+                source_already_published=source_already_published)
 
     missing_archives = {name for name, info in metadata.items() if info.get("names") and
                         any(pkg not in published for pkg in info["names"])}
     skipped = {name for name, result in results.items() if result["status"] in {"up-to-date", "needs-pkgrel"}}
-    seeds = set(packages) if full else (changed | requested | retry | missing_metadata | missing_archives | set(dependency_changes) | results.keys()) - skipped
+    seeds = set(packages) if full else (changed | requested | retry | missing_metadata | missing_archives | results.keys()) - skipped
     # Runtime-only changes do not require rebuilding metapackages, themes or settings.
     rebuild_dependents = {name: {child for child in children if
         metadata[child].get("architectures") != ["any"] or
         (set(metadata[name].get("names", [])) | set(metadata[name].get("provides", []))) &
-        (set(metadata[child].get("build_deps", [])) | rebuild_deps)} for name, children in dependents.items()}
+        (set(metadata[child].get("build_deps", [])) | {"python"})} for name, children in dependents.items()}
     selected = closure(seeds, rebuild_dependents) - skipped
     build_order = order(selected, dependencies)
     atomic_json(LOGDIR / "plan.json", {"order": build_order, "dependencies": {k: sorted(v) for k, v in dependencies.items()},
                                       "changed": sorted(changed), "requested": sorted(requested), "retry": sorted(retry),
                                       "missing_archives": sorted(missing_archives), "skipped": sorted(skipped),
-                                      "dependency_changes": dependency_changes})
+                                      "abi_triggers": abi_triggers})
     log("build-plan", selected=len(selected), order=build_order)
     checkpoint()
     firmware = Path(os.environ.get("FIRMWARE_TARBALL", "/tmp/lunaos-input/firmware.tar"))
-    if os.environ.get("BUILDBOT_ARCH_ISSUES", "false").lower() == "true":
-        check_arch_updates(packages, published, metadata)
-
     for name in build_order:
         with RUNTIME.context(name):
             if name in results:
@@ -653,14 +1161,19 @@ def main():
                 if stale:
                     info, old = stale[0]
                     number = None
-                    actionable = bool((name in changed and sources.get(name)) or name in dependency_changes)
-                    if actionable and os.environ.get("BUILDBOT_ISSUES", "false").lower() == "true":
+                    actionable = bool(name in changed and sources.get(name))
+                    managed = lunaos_source(row)
+                    if actionable and managed and name not in arch_updates:
                         try:
-                            number = create_pkgrel_issue(name, row, revisions[name], info["pkgver"], old["pkgver"], dependency_changes.get(name, {}))
+                            number = create_pkgrel_issue(name, row, revisions[name], info["pkgver"], old["pkgver"], {})
                         except Exception as exc:
                             RUNTIME.exception("pkgrel-issue-failed", exc)
                     status = "needs-pkgrel" if actionable else "unchanged"
                     detail = f"no newer archive ({info['pkgver']} ≤ {old['pkgver']})" + (f"; issue #{number}" if number else "")
+                    if actionable and not managed:
+                        detail += "; source is AUR and is not maintained by LunaOS, so no issue was opened"
+                    elif actionable and name in arch_updates:
+                        detail += "; rebuild issue suppressed because an Arch update issue is open"
                     results[name] = {"status": status, "detail": detail}
                     previous[name] = {"metadata": metadata[name], "dependency_versions": versions,
                                       "pending_source": revisions[name], "issue": number, "status": status}
@@ -671,7 +1184,8 @@ def main():
                     run(["pacman", "-U", "--noconfirm", "--asdeps", *map(str, built)])
                 if row["after"]:
                     run(["bash", "-e", "-o", "pipefail", "-c", row["after"]], cwd=path)
-                promote(built, infos, published)
+                promote(built, infos, published, {"source_url": row["url"], "source_revision": revisions[name],
+                                                   "source_tree": metadata[name].get("tree")})
                 results[name] = {"status": "built", "detail": ", ".join(p.name for p in built)}
                 sources[name] = revisions[name]
                 previous[name] = {"metadata": metadata[name], "dependency_versions": versions, "status": "built",
@@ -693,8 +1207,10 @@ def main():
                             log("cleanup-failed", path=str(scratch), error=str(exc))
                 log("build-end", status=results[name]["status"], elapsed_seconds=results[name]["elapsed_seconds"],
                     free_bytes=shutil.disk_usage(WORK).free)
+    cleanup_issues(packages, published, metadata, arch_updates, arch_versions,
+                   metadata_only_changes)
     checkpoint()
-    emit_summary(results, changed, dependency_changes, selected)
+    emit_summary(results, changed, abi_triggers, selected)
     failed = sum(result["status"] in FAILURES for result in results.values())
     built = sum(result["status"] == "built" for result in results.values())
     deferred = sum(result["status"] == "deferred" for result in results.values())

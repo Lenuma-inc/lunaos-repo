@@ -45,14 +45,15 @@ class Runtime:
             return [self.redact_value(item) for item in value]
         return value
 
-    def log(self, event, **fields):
+    def log(self, event, *, console=True, **fields):
         record = {"time": dt.datetime.now(dt.timezone.utc).isoformat(timespec="milliseconds"),
                   "event": event, "package": self.package, **fields}
         # Redact before JSON serialization, including multiline private keys.
         record = self.redact_value(record)
         line = f"{record['time']} [{self.package or 'buildbot'}] {event} " + " ".join(
             f"{k}={v}" for k, v in record.items() if k not in {"time", "package", "event"})
-        print(line, flush=True)
+        if console:
+            print(line, flush=True)
         with (self.logdir / "buildbot.log").open("a", encoding="utf-8") as log:
             log.write(line + "\n")
         with (self.logdir / "events.jsonl").open("a", encoding="utf-8") as log:
@@ -83,7 +84,7 @@ class Runtime:
         self.sequence += 1
         command = self.sequence
         start = time.monotonic()
-        self.log("command-start", command=command, argv=shlex.join(args),
+        self.log("command-start", console=False, command=command, argv=shlex.join(args),
                  cwd=str(cwd or Path.cwd()), timeout=timeout)
         environment = dict(os.environ if env is None else env, LC_ALL="C", GIT_TERMINAL_PROMPT="0")
         chunks, size = [], 0
@@ -118,15 +119,21 @@ class Runtime:
                     pending[label] += text
                     while "\n" in pending[label]:
                         line, pending[label] = pending[label].split("\n", 1)
-                        self.log("command-output", command=command, stream=label, text=line)
+                        self.log("command-output", console=False, command=command, stream=label, text=line)
+                        if not capture or label == "stderr":
+                            print(self.redact(line), flush=True)
                     if not raw:
                         if pending[label]:
-                            self.log("command-output", command=command, stream=label, text=pending[label])
+                            self.log("command-output", console=False, command=command, stream=label, text=pending[label])
+                            if not capture or label == "stderr":
+                                print(self.redact(pending[label]), flush=True)
                         pending[label] = ""
                         streams.unregister(key.fileobj)
                     elif len(pending[label]) > 65536:
                         # Keep newline-free tool output bounded too.
-                        self.log("command-output", command=command, stream=label, text=pending[label])
+                        self.log("command-output", console=False, command=command, stream=label, text=pending[label])
+                        if not capture or label == "stderr":
+                            print(self.redact(pending[label]), flush=True)
                         pending[label] = ""
             code = proc.wait()
         except BaseException:
@@ -146,7 +153,7 @@ class Runtime:
             streams.close()
             proc.stdout.close()
             proc.stderr.close()
-        self.log("command-end", command=command, exit_code=code,
+        self.log("command-end", console=False, command=command, exit_code=code,
                  elapsed_seconds=round(time.monotonic() - start, 3))
         if check and code:
             raise CommandError(f"command #{command} exited {code}: {shlex.join(args)}; see {self.logdir}")

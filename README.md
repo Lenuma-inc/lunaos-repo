@@ -1,14 +1,22 @@
-#  First, install our and chaotic-aur mirrorlist and keys.
+# LunaOS package repository
+
+## Install
+
+Install the LunaOS and Chaotic-AUR signing keys and mirror lists:
 
 ```sh
 sudo pacman-key --recv-key 3056513887B78AEB 78B2BAAB82C8D511 --keyserver keyserver.ubuntu.com
 sudo pacman-key --lsign-key 3056513887B78AEB 78B2BAAB82C8D511
-sudo pacman -U 'https://github.com/lenuma-inc/lunaos-repo/releases/download/lunaos-repo/lunaos-keyring-4-1-any.pkg.tar.zst' 'https://github.com/lenuma-inc/lunaos-repo/releases/download/lunaos-repo/lunaos-mirrorlist-2-3-x86_64.pkg.tar.zst' 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
+sudo pacman -U \
+  'https://github.com/lenuma-inc/lunaos-repo/releases/download/lunaos-repo/lunaos-keyring-4-1-any.pkg.tar.zst' \
+  'https://github.com/lenuma-inc/lunaos-repo/releases/download/lunaos-repo/lunaos-mirrorlist-2-3-x86_64.pkg.tar.zst' \
+  'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst' \
+  'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'
 ```
 
-#  Append (adding to the end of the file) to /etc/pacman.conf: 
+Add these entries to `/etc/pacman.conf`:
 
-```sh
+```ini
 [lunaos-repo]
 Include = /etc/pacman.d/lunaos-mirrorlist
 
@@ -16,28 +24,16 @@ Include = /etc/pacman.d/lunaos-mirrorlist
 Include = /etc/pacman.d/chaotic-mirrorlist
 ```
 
-# Repository build status
-[![LunaOS Repo Update](https://github.com/Lenuma-inc/lunaos-repo/actions/workflows/update-lunaos-repo.yml/badge.svg)](https://github.com/Lenuma-inc/lunaos-repo/actions/workflows/update-lunaos-repo.yml)
+Then refresh package databases with `sudo pacman -Syu`.
 
-## Buildbot
+## Build status
 
-The GitHub Actions buildbot checks the package source repositories every two hours. Package sources and makepkg options
-live in [`packages.tsv`](packages.tsv). It compares upstream revisions with the last successfully published build,
-reads each package's `.SRCINFO`, and builds changed packages plus their reverse dependency tree in dependency order.
-It also tracks installed build-dependency versions: Python extensions rebuild when Python's minor ABI changes, while
-Python bugfix releases alone do not trigger a rebuild.
-Published packages that match a package in Arch's `core`, `extra`, or `multilib` repositories are checked automatically.
-When Arch is ahead, the buildbot opens an issue to update the LunaOS copy while carrying its local patches forward.
+[![Repository update](https://github.com/Lenuma-inc/lunaos-repo/actions/workflows/update-lunaos-repo.yml/badge.svg)](https://github.com/Lenuma-inc/lunaos-repo/actions/workflows/update-lunaos-repo.yml)
 
-Each package builds into its own staging directory. A failed package does not stop unrelated builds, its previous
-published package remains available, and packages that depend on a failed build are marked blocked. Successful packages
-are signed and published even when another package fails. Failed and blocked packages are retried on the next run.
-If a rebuild would publish the same or an older package version, the builder opens a GitHub issue asking for a `pkgrel`
-bump in the package source and waits for that source change before retrying. Repeated runs reuse the open issue.
+The buildbot checks package sources every two hours. When a source or build dependency changes, it builds the affected packages and their dependents.
 
-The Actions run summary lists package statuses. Each package's full build output is attached as the
-`lunaos-build-logs-*` artifact. The builder also stores source revisions and package status in the Actions cache so it
-can select only changed packages between runs.
+Builds are isolated: one failure does not stop unrelated packages. Packages that need a failed build are reported as blocked; successful packages are still published. The previous published package stays available until its replacement is ready.
 
-To request a rebuild, open **Actions → LunaOS Repo Update → Run workflow**. Select **Rebuild every package** for a full
-build, or enter comma-separated package directories in **packages** to rebuild those packages and their dependents.
+The bot also checks for newer Arch and upstream versions and opens issues when a package needs updating or rebuilding. It does not silently publish a rebuild with the same or a lower package version; it asks for a `pkgrel` bump instead.
+
+Open a workflow run to see package results and logs. To start one manually, go to **Actions → LunaOS Repo Update → Run workflow**. Choose **Rebuild every package**, or list package directories to rebuild those packages and their dependents. Package sources and build options are listed in [`packages.tsv`](packages.tsv).

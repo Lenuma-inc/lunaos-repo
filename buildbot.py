@@ -14,10 +14,11 @@ import sys
 import tempfile
 import time
 import tomllib
-from urllib.parse import quote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 from pathlib import Path
 
 from buildbot_runtime import Runtime, atomic_json
+from buildbot_abi import RUNTIME_PATHS, changed_vtables, runtime_paths, version_nodes, vtable_slots
 
 ROOT = Path(__file__).resolve().parent
 WORK = Path(os.environ.get("BUILDBOT_WORK", "/tmp/lunaos-buildbot"))
@@ -26,6 +27,7 @@ LOGDIR = Path(os.environ.get("BUILDBOT_LOGDIR", "/tmp/lunaos-build-logs"))
 STATE_PATH = Path(os.environ.get("BUILDBOT_STATE", ROOT / ".build-state" / "state.json"))
 RUNTIME = None
 FAILURES = {"failed", "blocked", "source-failed", "source-check-failed"}
+ARCH_REPOSITORY_PACKAGES = None
 
 
 def log(event, **fields):
@@ -271,69 +273,91 @@ def archive_elf(path, provider=False):
     names = run(["bsdtar", "-tf", str(path)]).splitlines()
     verbose = run(["bsdtar", "-tvf", str(path)]).splitlines()
     candidates = set()
-    for line in verbose:
-        fields = line.split(maxsplit=5)
-        if (len(fields) == 6 and fields[0].startswith("-") and not fields[5].endswith("/")
-                and ("x" in fields[0] or re.search(r"\.so(?:\.[0-9]+)*$", fields[5]))):
-            candidates.add(fields[5])
+    # Both listings follow archive order; verbose dates vary with age and locale.
+    for name, line in zip(names, verbose, strict=True):
+        mode = line.split(maxsplit=1)[0]
+        if (mode.startswith("-") and not name.endswith("/")
+                and ("x" in mode or re.search(r"\.so(?:\.[0-9]+)*$", name))):
+            candidates.add(name)
     candidates = {name for name in candidates if not Path(name).is_absolute() and ".." not in Path(name).parts}
     if len(candidates) > 5000:
         raise RuntimeError(f"ELF scan candidate limit exceeded in {path}: {len(candidates)}")
 
-    needed, provided, imports, exports_by_soname, python_dirs = set(), set(), set(), {}, set()
-    for name in names:
-        match = re.match(r"(?:usr/)?lib/python(3\.\d+)/", name)
-        if match:
-            python_dirs.add(match[1])
+    needed, provided, imports, exports_by_soname = set(), set(), set(), {}
+    defined_versions, needed_versions, vtables = {}, {}, {}
     with tempfile.TemporaryDirectory(prefix="buildbot-elf-") as temp:
         for offset in range(0, len(candidates), 400):
             run(["bsdtar", "-xf", str(path), "-C", temp, "--", *sorted(candidates)[offset:offset + 400]])
         for name in sorted(candidates):
             file = Path(temp) / name
+            with file.open("rb") as stream:
+                if stream.read(4) != b"\x7fELF":
+                    continue
             header = run(["readelf", "-h", str(file)], check=False)
             if ("Class:" not in header or "ELF64" not in header or "Machine:" not in header or "X86-64" not in header
                     or not re.search(r"OS/ABI:\s+UNIX - (?:System V|GNU)", header)):
                 continue
             dynamic = run(["readelf", "-dW", str(file)], check=False)
+            if (not re.search(r"\(SYMTAB\)", dynamic) or
+                    re.search(r"\(STRSZ\)\s+1\s+\(bytes\)", dynamic)):
+                continue  # Static PIE can have SYMTAB with only the null symbol.
             needed.update(re.findall(r"\(NEEDED\).*\[([^]]+)\]", dynamic))
             soname = re.search(r"\(SONAME\).*\[([^]]+)\]", dynamic)
             if soname:
                 provided.add(soname[1])
+            defined, required_versions = version_nodes(run(["readelf", "-VW", str(file)], check=False))
+            for library, versions in required_versions.items():
+                needed_versions.setdefault(library, set()).update(versions)
+            if soname:
+                defined_versions.setdefault(soname[1], set()).update(defined)
             undefined = run(["nm", "-D", "--undefined-only", str(file)], check=False)
             for line in undefined.splitlines():
                 fields = line.split()
                 if len(fields) >= 2 and fields[-2] == "U":
                     imports.add(fields[-1])
             if provider and re.search(r"\.so(?:\.[0-9]+)*$", name):
-                defined = run(["nm", "-D", "--defined-only", str(file)], check=False)
+                defined = run(["nm", "-D", "-S", "--defined-only", str(file)], check=False)
                 if soname:
                     exports_by_soname.setdefault(soname[1], set()).update(
                         line.split()[-1] for line in defined.splitlines() if len(line.split()) >= 2)
+                if "_ZTV" in defined:
+                    vtables.update(vtable_slots(defined, run(["readelf", "-rW", str(file)], check=False)))
     return {"needed": needed, "provided": provided, "imports": imports,
-            "exports_by_soname": exports_by_soname, "python_dirs": python_dirs}
+            "exports_by_soname": exports_by_soname,
+            "defined_versions": defined_versions, "needed_versions": needed_versions, "vtables": vtables,
+            "runtime_dirs": runtime_paths(names)}
 
 
 def arch_archive(package, version, destination):
     plain_version = version.split(":", 1)[-1]
-    url = (f"https://archive.archlinux.org/packages/{package[0]}/{package}/"
-           f"{package}-{plain_version}-x86_64.pkg.tar.zst")
-    run(["curl", "--fail", "--location", "--silent", "--show-error", "--retry", "2",
-         "--output", str(destination), url])
+    base = f"https://archive.archlinux.org/packages/{package[0]}/{package}/"
+    listing = network_run(["curl", "--fail", "--location", "--silent", "--show-error", "--retry", "2", base])
+    files = [unquote(name) for name in re.findall(r'href="([^\"]+\.pkg\.tar\.zst)"', listing)]
+    matches = [name for name in files if name.startswith(f"{package}-{version}-")]
+    if not matches and plain_version != version:
+        matches = [name for name in files if name.startswith(f"{package}-{plain_version}-")]
+    matches = [name for name in matches if name.endswith(("-x86_64.pkg.tar.zst", "-any.pkg.tar.zst"))]
+    if len(matches) != 1:
+        raise RuntimeError(f"expected one Arch Archive package for {package} {version}, found {matches}")
+    url = base + quote(matches[0], safe="-._")
+    network_run(["curl", "--fail", "--location", "--silent", "--show-error", "--retry", "2",
+                 "--output", str(destination), url])
     info = archive_info(destination)
     if info["pkgname"] != package or info["pkgver"].split(":", 1)[-1] != plain_version:
         raise RuntimeError(f"Arch Archive returned unexpected package for {package} {version}")
     return destination
 
 
-def current_arch_archive(package, destination):
-    run(["pacman", "-Sw", "--noconfirm", "--nodeps", "--cachedir", str(destination.parent), package])
-    matches = list(destination.parent.glob(f"{package}-*.pkg.tar.zst"))
-    if len(matches) != 1:
-        raise RuntimeError(f"expected one current archive for {package}, found {len(matches)}")
-    if matches[0] != destination:
-        matches[0].replace(destination)
+def current_arch_archive(package, destination, expected=None):
+    output = run(["pacman", "-Sp", "--nodeps", "--nodeps", "--print-format", "%l", package])
+    urls = [line.strip() for line in output.splitlines()
+            if urlsplit(line.strip()).scheme in {"http", "https"}]
+    if len(urls) != 1:
+        raise RuntimeError(f"expected one current Arch download URL for {package}, found {len(urls)}")
+    run(["curl", "--fail", "--location", "--silent", "--show-error", "--retry", "2",
+         "--output", str(destination), urls[0]])
     info = archive_info(destination)
-    expected = arch_version(package)
+    expected = expected or arch_version(package)
     if (info["pkgname"] != package or
             (expected and info["pkgver"].split(":", 1)[-1] != expected.split(":", 1)[-1])):
         raise RuntimeError(f"Arch returned unexpected current package for {package}: {info['pkgver']} != {expected}")
@@ -341,12 +365,14 @@ def current_arch_archive(package, destination):
 
 
 def arch_version(package):
-    for repo in ("core", "extra", "multilib"):
-        result = run(["pacman", "-Si", f"{repo}/{package}"], check=False)
-        version = re.search(r"^Version\s*:\s*(.+)$", result, re.MULTILINE)
-        if version:
-            return version[1].strip()
-    return None
+    global ARCH_REPOSITORY_PACKAGES
+    if ARCH_REPOSITORY_PACKAGES is None:
+        ARCH_REPOSITORY_PACKAGES = {}
+        for line in run(["pacman", "-Sl"]).splitlines():
+            fields = line.split()
+            if len(fields) >= 3 and fields[0] in {"core", "extra", "multilib"}:
+                ARCH_REPOSITORY_PACKAGES.setdefault(fields[1], fields[2])
+    return ARCH_REPOSITORY_PACKAGES.get(package)
 
 
 def symbol_key(symbol):
@@ -355,34 +381,17 @@ def symbol_key(symbol):
 
 
 def elf_rebuild_triggers(packages, published, available, previous, refs, metadata):
-    """Find published LunaOS packages that lost an ELF ABI or Python runtime path."""
-    python_version = arch_version("python") or available.get("python", "")
-    current_python = re.match(r"(?:[0-9]+:)?([0-9]+\.[0-9]+)", python_version)
+    """Find published LunaOS packages that lost an ELF ABI or runtime path."""
+    runtimes = {name: available.get(name) or arch_version(name) for name in RUNTIME_PATHS}
     triggers, provider_cache, version_cache = {}, {}, {}
     for package, archive in published.items():
         owner = packages.get(package) or packages.get(archive.get("pkgbase", ""))
-        if not owner or not lunaos_source(owner):
+        if not owner:
             continue
         directory = owner["directory"]
         old_state = previous.get(directory, {})
         if (old_state.get("abi_pending") and old_state.get("pending_source") == refs.get(directory)
                 and not published_source_matches(metadata.get(directory, {}), published, refs.get(directory, ""))):
-            continue
-        old_python = (installed_package_version(archive.get("installed", []), "python") or
-                      old_state.get("dependency_versions", {}).get("python"))
-        old_python_match = re.match(r"(?:[0-9]+:)?([0-9]+\.[0-9]+)", old_python or "")
-        python_candidate = bool(current_python and old_python_match and old_python_match[1] != current_python[1])
-        changed_providers = []
-        for dependency in archive.get("depends", []):
-            old_version = (installed_package_version(archive.get("installed", []), dependency) or
-                           old_state.get("dependency_versions", {}).get(dependency))
-            if dependency not in version_cache:
-                version_cache[dependency] = arch_version(dependency)
-            new_version = version_cache[dependency]
-            if not old_version or not new_version or int(run(["vercmp", old_version, new_version])) == 0:
-                continue
-            changed_providers.append((dependency, old_version, new_version))
-        if not changed_providers and not python_candidate:
             continue
         try:
             consumer = archive_elf(archive["_path"])
@@ -390,17 +399,44 @@ def elf_rebuild_triggers(packages, published, available, previous, refs, metadat
             log("abi-consumer-scan-failed", package=package, error=str(exc))
             continue
         reasons, version_changes = [], {}
-        if python_candidate and old_python_match[1] in consumer["python_dirs"]:
-            reasons.append(f"Python files remain under python{old_python_match[1]} (current Python is {current_python[1]})")
-            version_changes["python"] = (old_python, python_version)
-
+        for runtime, current in runtimes.items():
+            old = (installed_package_version(archive.get("installed", []), runtime) or
+                   old_state.get("dependency_versions", {}).get(runtime))
+            components = 3 if runtime == "ghc" else 2
+            match = re.match(r"(?:[0-9]+:)?(\d+(?:\.\d+){" + str(components - 1) + r"})", current or "")
+            for version in sorted(consumer.get("runtime_dirs", {}).get(runtime, ())):
+                if match and version != match[1]:
+                    reasons.append(f"{runtime} files remain under {version} (current {runtime} is {match[1]})")
+                    version_changes[runtime] = (old or version, current)
+        provider_names = set(archive.get("depends", [])) if consumer["needed"] or consumer["imports"] else set()
+        # Resolve linked libraries even when the provider is an indirect dependency.
+        for soname in sorted(consumer["needed"]):
+            if "/" not in soname and (library := Path("/usr/lib") / soname).is_file():
+                provider_names.update(run(["pacman", "-Qqo", "--", str(library)], check=False).splitlines())
+        changed_providers = []
+        for dependency in sorted(provider_names):
+            old_version = (installed_package_version(archive.get("installed", []), dependency) or
+                           old_state.get("dependency_versions", {}).get(dependency))
+            if dependency not in version_cache:
+                version_cache[dependency] = available.get(dependency) or arch_version(dependency)
+            new_version = version_cache[dependency]
+            if not old_version or not new_version or int(run(["vercmp", old_version, new_version])) == 0:
+                continue
+            changed_providers.append((dependency, old_version, new_version))
         for dependency, old_version, new_version in changed_providers:
             key = (dependency, old_version, new_version)
             if key not in provider_cache:
                 try:
                     with tempfile.TemporaryDirectory(prefix="buildbot-abi-provider-") as temp:
-                        old_path = arch_archive(dependency, old_version, Path(temp) / "old.pkg.tar.zst")
-                        new_path = current_arch_archive(dependency, Path(temp) / "new.pkg.tar.zst")
+                        local = published.get(dependency)
+                        if local and int(run(["vercmp", local["pkgver"], old_version])) == 0:
+                            old_path = local["_path"]
+                        else:
+                            old_path = arch_archive(dependency, old_version, Path(temp) / "old.pkg.tar.zst")
+                        if local and int(run(["vercmp", local["pkgver"], new_version])) == 0:
+                            new_path = local["_path"]
+                        else:
+                            new_path = current_arch_archive(dependency, Path(temp) / "new.pkg.tar.zst", new_version)
                         provider_cache[key] = (archive_elf(old_path, provider=True), archive_elf(new_path, provider=True))
                 except Exception as exc:
                     provider_cache[key] = exc
@@ -409,21 +445,34 @@ def elf_rebuild_triggers(packages, published, available, previous, refs, metadat
             old_provider, new_provider = provider_cache[key] if not isinstance(provider_cache[key], Exception) else (None, None)
             if not old_provider:
                 continue
-            lost_sonames = consumer["needed"] & old_provider["provided"] - new_provider["provided"]
+            external_needed = consumer["needed"] - consumer["provided"]
+            lost_sonames = external_needed & old_provider["provided"] - new_provider["provided"]
             required = {symbol_key(item) for item in consumer["imports"]}
             lost_symbols = set()
-            for soname in consumer["needed"] & old_provider["provided"] & new_provider["provided"]:
+            for soname in external_needed & old_provider["provided"] & new_provider["provided"]:
                 old_exports = {symbol_key(item) for item in old_provider["exports_by_soname"].get(soname, ())}
                 new_exports = {symbol_key(item) for item in new_provider["exports_by_soname"].get(soname, ())}
                 lost_symbols.update(required & (old_exports - new_exports))
             lost_symbols = sorted(lost_symbols)
-            if lost_sonames or lost_symbols:
+            lost_versions = []
+            for soname, required in consumer.get("needed_versions", {}).items():
+                if soname in consumer["provided"]:
+                    continue
+                old_nodes = old_provider.get("defined_versions", {}).get(soname, set())
+                new_nodes = new_provider.get("defined_versions", {}).get(soname, set())
+                lost_versions.extend(f"{soname}:{node}" for node in sorted(required & (old_nodes - new_nodes)))
+            vtables = changed_vtables(old_provider.get("vtables", {}), new_provider.get("vtables", {}), consumer["imports"])
+            if lost_sonames or lost_symbols or lost_versions or vtables:
                 detail = []
                 if lost_sonames:
                     detail.append("missing SONAMEs " + ", ".join(sorted(lost_sonames)))
                 if lost_symbols:
                     detail.append("missing symbols " + ", ".join(f"{name}@{version}" if version else name
                                                                       for name, version in lost_symbols[:8]))
+                if lost_versions:
+                    detail.append("missing version nodes " + ", ".join(lost_versions[:8]))
+                if vtables:
+                    detail.append("vtable layout changed " + ", ".join(vtables[:8]))
                 reasons.append(f"{dependency} {old_version} → {new_version}: " + "; ".join(detail))
                 version_changes[dependency] = (old_version, new_version)
         if reasons:
@@ -479,7 +528,7 @@ def lunaos_source(row):
 
 
 def create_pkgrel_issue(name, row, revision, current, published, dependency_changes, reason=None):
-    if not lunaos_source(row):
+    if not lunaos_source(row) and not reason:
         raise ValueError(f"cannot request a pkgrel change in unmaintained source: {row['url']}")
     title = f"[rebuild] {name}: bump pkgrel"
     marker = f"<!-- lunaos-buildbot:rebuild:{name}:{revision}:{current}:{published} -->"
@@ -506,6 +555,8 @@ def create_pkgrel_issue(name, row, revision, current, published, dependency_chan
                        "Bump `pkgrel` (or update `pkgver` if needed) in its source.")
     body = (f"{explanation}\n\n[Package source]({source_link})\n\nTrigger: {changed}"
             f"\n\nSource revision: `{revision}`\n\n{marker}")
+    if reason:
+        body += "\n<!-- lunaos-buildbot:abi -->"
     body_path = LOGDIR / f"{name}-issue.md"
     body_path.write_text(body)
     url = run(["gh", "issue", "create", "--title", title, "--body-file", str(body_path)])
@@ -685,15 +736,21 @@ def cleanup_issues(packages, published, metadata, arch_updates, arch_versions, m
         if kind == "rebuild" and (legacy_bot_issue or f"<!-- lunaos-buildbot:rebuild:{name}:" in body):
             owner = packages.get(name)
             revision = re.search(r"Source revision: `([0-9a-f]+)`", body)
-            if revision and metadata_only_changes.get(name) == revision[1]:
+            abi_issue = "<!-- lunaos-buildbot:abi -->" in body or body.startswith("The Buildbot ABI/runtime scan found")
+            if not abi_issue and revision and metadata_only_changes.get(name) == revision[1]:
                 reason = "Obsolete: this source revision changes nvchecker metadata only."
-            elif not owner or not lunaos_source(owner):
+            elif not owner or (not lunaos_source(owner) and not abi_issue):
                 reason = "Obsolete: this package is no longer built from a LunaOS-maintained source."
             elif name in arch_updates:
                 reason = "Superseded by the open Arch update issue."
             else:
                 info = metadata.get(name, {})
-                if revision and published_source_matches(info, published, revision[1]):
+                if abi_issue:
+                    old = re.search(r"LunaOS publishes `([^`]+)`", body)
+                    current = package_version(name)
+                    if old and current and int(run(["vercmp", current, old[1]])) > 0:
+                        reason = f"Resolved: LunaOS now publishes `{current}`."
+                elif revision and published_source_matches(info, published, revision[1]):
                     reason = f"Resolved: published archive already contains source revision `{revision[1]}`."
                 else:
                     old = (re.search(r"does not upgrade the published `([^`]+)`", body) or
@@ -997,7 +1054,12 @@ def main():
         info = metadata[name]
         issue_still_waiting = (previous.get(name, {}).get("abi_pending") and
                                previous.get(name, {}).get("pending_source") == refs[name])
-        if name in abi_triggers and not full and name not in requested and not issue_still_waiting:
+        newer_source = bool(name in abi_triggers and info.get("version") and info.get("names") and all(
+            pkg in published and int(run(["vercmp", info["version"], published[pkg]["pkgver"]])) > 0
+            for pkg in info.get("names", [])))
+        if name in abi_triggers and newer_source:
+            changed.add(name)
+        if name in abi_triggers and not newer_source and not full and name not in requested and not issue_still_waiting:
             number = None
             if name not in arch_updates:
                 try:

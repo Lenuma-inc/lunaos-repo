@@ -86,7 +86,7 @@ jobs:
 
       - name: Prepare container
         run: |
-          pacman -Syuu --noconfirm --disable-download-timeout --needed git wget gnupg lftp github-cli python nvchecker
+          pacman -Syuu --noconfirm --disable-download-timeout --needed git wget gnupg lftp github-cli python nvchecker binutils libarchive curl
           cp "$GITHUB_WORKSPACE/makepkg.conf" /etc/makepkg.conf
 
           yes | pacman -Scc

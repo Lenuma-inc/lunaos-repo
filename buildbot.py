@@ -1014,6 +1014,8 @@ def main():
 
     missing_metadata = {name for name in packages if not metadata[name].get("names")}
     inspect = set(packages) if full else changed | requested | retry | missing_metadata
+    inspect |= {name for name in packages if previous.get(name, {}).get("abi_pending")
+                and metadata[name].get("dynamic_version")}
     for name in sorted(inspect - results.keys()):
         with RUNTIME.context(name):
             try:
@@ -1054,6 +1056,9 @@ def main():
         info = metadata[name]
         issue_still_waiting = (previous.get(name, {}).get("abi_pending") and
                                previous.get(name, {}).get("pending_source") == refs[name])
+        if info.get("dynamic_version") and (name in abi_triggers or issue_still_waiting):
+            changed.add(name)
+            continue  # pkgver() must run before deciding whether pkgrel needs a bump.
         newer_source = bool(name in abi_triggers and info.get("version") and info.get("names") and all(
             pkg in published and int(run(["vercmp", info["version"], published[pkg]["pkgver"]])) > 0
             for pkg in info.get("names", [])))

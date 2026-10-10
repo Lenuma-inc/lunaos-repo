@@ -1,14 +1,84 @@
 import unittest
 import json
 import tempfile
+from contextlib import ExitStack
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import buildbot
 from buildbot_abi import changed_vtables, runtime_paths, version_nodes, vtable_slots
 
 
 class ArchiveScanTests(unittest.TestCase):
+    def test_vtable_relocation_changes_preserve_slot_offsets(self):
+        symbols = "00001000 00000028 D _ZTVExample"
+        old = vtable_slots(symbols, """00001010 0001 R_X86_64_64 0000 eventFilter + 0
+00001018 0002 R_X86_64_64 0000 timerEvent + 0""")
+        new = vtable_slots(symbols, """00001010 0001 R_X86_64_RELATIVE 1234
+00001018 0002 R_X86_64_64 0000 timerEvent + 0""")
+        self.assertEqual(changed_vtables(old, new, {"eventFilter", "timerEvent"}), [])
+        replaced = vtable_slots(symbols, """00001010 0001 R_X86_64_64 0000 other + 0
+00001018 0002 R_X86_64_64 0000 timerEvent + 0""")
+        self.assertEqual(changed_vtables(old, replaced, {"timerEvent"}), [])
+        self.assertEqual(changed_vtables(old, replaced, {"eventFilter"}), ["_ZTVExample"])
+        shortened = vtable_slots("00001000 00000018 D _ZTVExample", "")
+        self.assertEqual(changed_vtables(old, shortened, {"timerEvent"}), ["_ZTVExample"])
+
+    def test_abi_gate_builds_dynamic_versions_and_checks_the_result(self):
+        cases = [(True, False, "2-1", "built"), (True, True, "2-1", "built"),
+                 (True, False, "1-1", "needs-pkgrel"), (False, False, "2-1", "needs-pkgrel")]
+        for dynamic, pending, built_version, expected in cases:
+            with self.subTest(dynamic=dynamic, pending=pending, built_version=built_version), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                work, destination, logs = root / "work", root / "repo", root / "logs"
+                for directory in (work, destination, logs, work / "example"):
+                    directory.mkdir(parents=True, exist_ok=True)
+                row = {"directory": "example", "url": "https://gitlab.com/LunaOS/example.git",
+                       "ref": "HEAD", "makepkg_flags": "-s", "before": "", "after": ""}
+                info = {"names": ["example"], "version": ".-1", "dynamic_version": dynamic,
+                        "tree": "tree", "architectures": ["x86_64"], "nvchecker_revision": "abc"}
+                previous = {"example": {"metadata": info.copy()}}
+                if pending:
+                    previous["example"].update(abi_pending=True, pending_source="abc", status="needs-pkgrel")
+                triggers = {} if pending else {"example": {"published_version": "1-1", "versions": {}, "reason": "ABI changed"}}
+                published = {"example": {"pkgver": "1-1", "_path": str(destination / "old.pkg.tar.zst")}}
+
+                def run(args, **kwargs):
+                    if args[0] == "vercmp":
+                        return "0" if args[1] == args[2] else "-1" if args[1] == ".-1" else "1"
+                    if "makepkg" in args:
+                        Path(kwargs["env"]["PKGDEST"], "new.pkg.tar.zst").touch()
+                    return ""
+
+                mocks = {
+                    "RUNTIME": MagicMock(), "WORK": work, "PKGDEST": destination, "LOGDIR": logs,
+                    "STATE_PATH": root / "state.json", "read_manifest": MagicMock(return_value={"example": row}),
+                    "load_state": MagicMock(return_value=({"example": "abc"}, previous)),
+                    "source_sha": MagicMock(return_value="abc"), "published_packages": MagicMock(return_value=published),
+                    "clone": MagicMock(return_value=(work / "example", "abc")),
+                    "package_info": MagicMock(return_value=info), "check_arch_updates": MagicMock(return_value=({}, {})),
+                    "check_nvchecker_updates": MagicMock(return_value=({}, {})), "cleanup_issues": MagicMock(),
+                    "graph": MagicMock(return_value=({"example": set()}, {"example": set()})),
+                    "available_versions": MagicMock(return_value={}), "elf_rebuild_triggers": MagicMock(return_value=triggers),
+                    "create_pkgrel_issue": MagicMock(return_value=45), "run": MagicMock(side_effect=run),
+                    "build_environment": MagicMock(return_value={}), "installed_versions": MagicMock(return_value={}),
+                    "dependency_versions": MagicMock(return_value={}),
+                    "archive_info": MagicMock(return_value={"pkgname": "example", "pkgver": built_version}),
+                    "promote": MagicMock(), "emit_summary": MagicMock(), "outputs": MagicMock(), "log": MagicMock(),
+                }
+                with ExitStack() as stack:
+                    stack.enter_context(patch.dict(buildbot.os.environ, {"BUILDBOT_PACKAGES": "", "BUILDBOT_FULL": "false"}))
+                    for name, value in mocks.items():
+                        stack.enter_context(patch.object(buildbot, name, value))
+                    self.assertEqual(buildbot.main(), 0)
+                result = json.loads((logs / "results.json").read_text())["example"]
+                self.assertEqual(result["status"], expected)
+                builds = [call for call in mocks["run"].call_args_list if "makepkg" in call.args[0]]
+                self.assertEqual(len(builds), int(dynamic))
+                self.assertEqual(mocks["promote"].call_count, int(expected == "built"))
+                if expected == "built":
+                    mocks["create_pkgrel_issue"].assert_not_called()
+
     def test_old_provider_uses_matching_lunaos_release(self):
         provider = "gnome-shell-extension-appindicator"
         consumer = {"_path": "consumer.pkg.tar.zst", "pkgver": "1-1",
@@ -147,7 +217,7 @@ class ArchiveScanTests(unittest.TestCase):
         self.assertEqual(needed, {"libc.so.6": {"GLIBC_2.2.5"}})
         tables = vtable_slots("00001000 00000018 D _ZTVExample", """00001008 0001 R_X86_64_64 0000 _ZTIExample + 0
 00001010 0002 R_X86_64_64 0000 method + 0""")
-        self.assertEqual(tables, {"_ZTVExample": ["method"]})
+        self.assertEqual(tables, {"_ZTVExample": [None, None, "method"]})
         self.assertEqual(changed_vtables(tables, {}, {"method"}), ["_ZTVExample"])
         self.assertEqual(changed_vtables(tables, {}, {"unrelated"}), [])
         self.assertEqual(changed_vtables({"t": ["__cxa_pure_virtual"]}, {}, {"__cxa_pure_virtual"}), [])

@@ -53,25 +53,26 @@ def vtable_slots(symbols, relocations):
         fields = line.split()
         if len(fields) == 4 and fields[3].startswith("_ZTV"):
             address, size = int(fields[0], 16), int(fields[1], 16)
-            targets = [symbol for offset, symbol in slots if address <= offset < address + size
-                       and not symbol.startswith("_ZTI")]
-            if targets:
-                tables[fields[3].split("@", 1)[0]] = targets
+            targets = [None] * (size // 8)
+            for offset, symbol in slots:
+                if address <= offset < address + size and not symbol.startswith("_ZTI"):
+                    targets[(offset - address) // 8] = symbol
+            tables[fields[3].split("@", 1)[0]] = targets
     return tables
 
 
 def changed_vtables(old, new, imports):
     """Appending slots is compatible; reordered/removed imported slots are not.
 
-    ponytail: relocation/import heuristic, not a complete C++ ABI checker;
-    use DWARF-based analysis if class-layout changes must also be detected.
+    shortcut: unnamed relocations are unknown, use DWARF for complete class-layout checks.
     """
     required = {symbol.split("@", 1)[0] for symbol in imports}
     broken = []
     for table, slots in old.items():
         current = new.get(table, [])
-        mismatch = next((i for i, slot in enumerate(slots) if i >= len(current) or current[i] != slot), None)
-        if mismatch is not None and any(slot in required and not slot.startswith(("__cxa_", "_Unwind_"))
-                                        and slot != "__gxx_personality_v0" for slot in slots[mismatch:]):
+        if any(slot in required and not slot.startswith(("__cxa_", "_Unwind_"))
+               and slot != "__gxx_personality_v0"
+               and (i >= len(current) or current[i] is not None and current[i] != slot)
+               for i, slot in enumerate(slots)):
             broken.append(table)
     return broken

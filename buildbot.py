@@ -523,6 +523,33 @@ def published_packages():
     return result
 
 
+def remove_unlisted_packages(packages, metadata, published):
+    """Remove published archives whose recorded source left the manifest."""
+    active_sources = {row["url"] for row in packages.values()}
+    active_names = set(packages)
+    for directory, info in metadata.items():
+        active_names.update(info.get("names", []))
+        active_names.add(info.get("pkgbase", directory))
+    removed = {}
+    for name, info in list(published.items()):
+        provenance = info.get("buildbot", {})
+        source = provenance.get("source_url")
+        if (not source or source in active_sources or name in active_names or
+                info.get("pkgbase", name) in active_names):
+            continue
+        archive = Path(info["_path"])
+        deleted = []
+        for item in (archive, archive.with_name(archive.name + ".sig"),
+                     archive.with_name(archive.name + ".buildbot.json")):
+            if item.exists():
+                item.unlink()
+                deleted.append(item.name)
+        published.pop(name)
+        removed[name] = {"status": "removed", "detail": ", ".join(deleted)}
+        log("unlisted-published-package-removed", package=name, source=source, files=deleted)
+    return removed
+
+
 def lunaos_source(row):
     return row["url"].startswith("https://gitlab.com/LunaOS/")
 
@@ -632,6 +659,34 @@ def check_arch_updates(packages, published, metadata):
     return updates, arch_versions
 
 
+def nvchecker_upstream_links(section, package, current, target):
+    """Return useful upstream links derivable from an nvchecker section."""
+    source = section.get("source", "")
+    repository = section.get("git", "").removesuffix(".git")
+    if source == "github" and section.get("github"):
+        repository = f"https://github.com/{section['github']}"
+    elif source == "gitlab" and section.get("gitlab"):
+        repository = f"https://gitlab.com/{section['gitlab']}"
+    prefix = section.get("prefix", "")
+    old_tag, new_tag = f"{prefix}{current}", f"{prefix}{target}"
+    links = []
+    if repository.startswith("https://github.com/"):
+        links.extend((("Upstream", repository),
+                      ("Release/tag", f"{repository}/releases/tag/{quote(new_tag, safe='')}") ,
+                      ("Changes", f"{repository}/compare/{quote(old_tag, safe='')}...{quote(new_tag, safe='')}")))
+    elif repository.startswith("https://gitlab.com/"):
+        links.extend((("Upstream", repository),
+                      ("Release/tag", f"{repository}/-/tags/{quote(new_tag, safe='')}") ,
+                      ("Changes", f"{repository}/-/compare/{quote(old_tag, safe='')}...{quote(new_tag, safe='')}")))
+    elif source == "pypi":
+        project = section.get("pypi", package)
+        links.extend((("Upstream", f"https://pypi.org/project/{quote(project, safe='')}/"),
+                      ("Release", f"https://pypi.org/project/{quote(project, safe='')}/{quote(target, safe='')}/")))
+    elif repository.startswith(("https://", "http://")):
+        links.append(("Upstream", repository))
+    return links
+
+
 def check_nvchecker_updates(packages, published, metadata, arch_updates):
     updates, versions = set(), {}
     WORK.mkdir(parents=True, exist_ok=True)
@@ -679,20 +734,29 @@ def check_nvchecker_updates(packages, published, metadata, arch_updates):
             if not current or int(run(["vercmp", version, upstream_version(current)])) <= 0:
                 continue
             title = f"[update] {name}: update upstream package"
-            if any(issue["title"] == title for issue in issues):
-                updates.add(name)
-                continue
+            existing = next((issue for issue in issues if issue["title"] == title), None)
             marker = f"<!-- lunaos-buildbot:nvchecker:{name}:{version} -->"
+            declared = upstream_version(source_version or current)
+            links = [("Package source", packages[name]["url"].removesuffix(".git"))]
+            links.extend(nvchecker_upstream_links(config[pkgbase], pkgbase, declared, version))
+            links_text = " · ".join(f"[{label}]({url})" for label, url in links)
             body = (f"nvchecker found upstream version `{version}` for `{name}`. The package source declares "
-                    f"`{upstream_version(source_version or current)}`; LunaOS publishes `{published_version or current}`.\n\n"
+                    f"`{declared}`; LunaOS publishes `{published_version or current}`.\n\n"
                     "Update the package source to the upstream version and carry LunaOS changes forward.\n\n"
-                    f"[Package source]({packages[name]['url'].removesuffix('.git')})\n\n{marker}")
+                    f"{links_text}\n\n{marker}")
             body_path = LOGDIR / f"{name}-nvchecker-issue.md"
             body_path.write_text(body)
-            url = run(["gh", "issue", "create", "--title", title, "--body-file", body_path])
-            issue = {"number": int(url.rstrip("/").rsplit("/", 1)[-1]),
-                     "title": title, "body": body}
-            issues.append(issue)
+            if existing:
+                if existing.get("body", "") != body:
+                    run(["gh", "issue", "edit", str(existing["number"]), "--body-file", body_path])
+                    existing["body"] = body
+                    log("nvchecker-issue-updated", name=name, issue=existing["number"], upstream=version)
+                issue = existing
+            else:
+                url = run(["gh", "issue", "create", "--title", title, "--body-file", body_path])
+                issue = {"number": int(url.rstrip("/").rsplit("/", 1)[-1]),
+                         "title": title, "body": body}
+                issues.append(issue)
             updates.add(name)
             log("nvchecker-update", current=upstream_version(current), upstream=version,
                 issue=issue["number"])
@@ -989,6 +1053,8 @@ def main():
     metadata = {name: previous.get(name, {}).get("metadata", {}) for name in packages}
     full = os.environ.get("BUILDBOT_FULL", "false").lower() == "true"
     published = published_packages()
+    results.update(remove_unlisted_packages(packages, metadata, published))
+    repository_changed = bool(results)
     retry = {name for name, info in previous.items() if info.get("status") in FAILURES | {"deferred"}}
 
     def checkpoint():
@@ -1281,8 +1347,10 @@ def main():
     failed = sum(result["status"] in FAILURES for result in results.values())
     built = sum(result["status"] == "built" for result in results.values())
     deferred = sum(result["status"] == "deferred" for result in results.values())
-    outputs(failed=failed, packages_built=built, deferred=deferred, fatal=0)
-    log("run-end", failed=failed, packages_built=built, deferred=deferred)
+    outputs(failed=failed, packages_built=built, repository_changed=int(repository_changed or built > 0),
+            deferred=deferred, fatal=0)
+    log("run-end", failed=failed, packages_built=built,
+        repository_changed=repository_changed or built > 0, deferred=deferred)
     # Actions publishes the successful subset before its final failure gate.
     return 0 if os.environ.get("GITHUB_OUTPUT") else int(failed > 0)
 
@@ -1291,7 +1359,7 @@ def entrypoint():
     global RUNTIME
     try:
         RUNTIME = Runtime(LOGDIR)
-        outputs(failed=1, packages_built=0, fatal=1)
+        outputs(failed=1, packages_built=0, repository_changed=0, fatal=1)
         for directory in (WORK, PKGDEST, STATE_PATH.parent):
             directory.mkdir(parents=True, exist_ok=True)
         log("run-start", python=sys.version, work=str(WORK), destination=str(PKGDEST), state=str(STATE_PATH),

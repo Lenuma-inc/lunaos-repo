@@ -221,15 +221,15 @@ jobs:
         run: python3 "$GITHUB_WORKSPACE/buildbot.py"
 
       - name: Sign lunaos repo
-        if: steps.buildbot.outputs.packages_built != '0'
+        if: steps.buildbot.outputs.repository_changed != '0'
         run: sh "$GITHUB_WORKSPACE/sign.sh"
 
       - name: Update lunaos repo database
-        if: steps.buildbot.outputs.packages_built != '0'
+        if: steps.buildbot.outputs.repository_changed != '0'
         run: sh "$GITHUB_WORKSPACE/update-repo.sh"
 
       - name: Publish repository release
-        if: steps.buildbot.outputs.packages_built != '0'
+        if: steps.buildbot.outputs.repository_changed != '0'
         run: |
           release_endpoint="repos/$GH_REPO/releases/tags/$repo"
           release_error="$RUNNER_TEMP/lunaos-release-error"
@@ -269,7 +269,7 @@ jobs:
           gh api --method PATCH "repos/$GH_REPO/releases/$release_id" -F draft=false
 
       - name: Upload repository to S3
-        if: steps.buildbot.outputs.packages_built != '0'
+        if: steps.buildbot.outputs.repository_changed != '0'
         env:
           FTP_SERVER: ftp.ru1.storage.beget.cloud
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}

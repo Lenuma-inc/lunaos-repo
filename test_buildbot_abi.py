@@ -10,6 +10,19 @@ from buildbot_abi import changed_vtables, runtime_paths, version_nodes, vtable_s
 
 
 class ArchiveScanTests(unittest.TestCase):
+    def test_nvchecker_upstream_links_include_release_and_changes(self):
+        links = dict(buildbot.nvchecker_upstream_links(
+            {"source": "git", "git": "https://github.com/example/project.git", "prefix": "v"},
+            "project", "1.2.0", "1.3.0"))
+        self.assertEqual(links["Upstream"], "https://github.com/example/project")
+        self.assertEqual(links["Release/tag"], "https://github.com/example/project/releases/tag/v1.3.0")
+        self.assertEqual(links["Changes"], "https://github.com/example/project/compare/v1.2.0...v1.3.0")
+
+        pypi = dict(buildbot.nvchecker_upstream_links(
+            {"source": "pypi", "pypi": "example-project"},
+            "project", "1.2.0", "1.3.0"))
+        self.assertEqual(pypi["Release"], "https://pypi.org/project/example-project/1.3.0/")
+
     def test_vtable_relocation_changes_preserve_slot_offsets(self):
         symbols = "00001000 00000028 D _ZTVExample"
         old = vtable_slots(symbols, """00001010 0001 R_X86_64_64 0000 eventFilter + 0

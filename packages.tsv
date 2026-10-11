@@ -48,7 +48,6 @@ lunaos-settings-t2	https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/sys
 lunaos-zram-defaults	https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/lunaos-zram-defaults.git	HEAD	-s		
 dkms	https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/dkms.git	HEAD	-s		
 bauh	https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/bauh.git	HEAD	-s		
-nautilus	https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/nautilus.git	HEAD	-s		
 nautilus-backspace-back-extension	https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/nautilus-backspace-back-extension.git	HEAD	-s		
 nautilus-admin-gtk4	https://github.com/archlinux/aur.git	nautilus-admin-gtk4	-s		
 nautilus-copy-path	https://github.com/archlinux/aur.git	nautilus-copy-path	-s		

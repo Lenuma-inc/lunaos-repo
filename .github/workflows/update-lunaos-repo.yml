@@ -8,6 +8,7 @@ on:
       - "buildbot.py"
       - "buildbot_runtime.py"
       - "packages.tsv"
+      - "retired-pkgbases.txt"
       - "makepkg.conf"
       - "sign.sh"
       - "update-repo.sh"

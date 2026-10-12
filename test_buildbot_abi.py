@@ -10,6 +10,43 @@ from buildbot_abi import changed_vtables, runtime_paths, version_nodes, vtable_s
 
 
 class ArchiveScanTests(unittest.TestCase):
+    def test_remove_unlisted_packages_cleans_retired_bases_and_preserves_active_packages(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            packages = {"nautilus-copy-path": {"url": "https://example.com/extension.git"}}
+            published = {}
+            bases = {"nautilus": "nautilus", "libnautilus-extension": "nautilus",
+                     "libnautilus-extension-docs": "nautilus", "nautilus-copy-path": "nautilus-copy-path",
+                     "unknown": "unknown", "removed": "removed"}
+            retired_bases = set((buildbot.ROOT / "retired-pkgbases.txt").read_text().split())
+            bases.update({base: base for base in retired_bases})
+            bases["rog-control-center"] = "asusctl"
+            bases["qogir-cursor-theme-git"] = "qogir-cursor-theme-git"
+            for name, base in bases.items():
+                archive = root / (name + ".pkg.tar.zst")
+                for suffix in ("", ".sig", ".buildbot.json"):
+                    Path(str(archive) + suffix).touch()
+                published[name] = {"pkgbase": base, "_path": str(archive)}
+            published["removed"]["buildbot"] = {"source_url": "https://example.com/removed.git"}
+            with patch.object(buildbot, "log"):
+                removed = buildbot.remove_unlisted_packages(packages, {}, published)
+            self.assertEqual(set(removed), retired_bases | {"libnautilus-extension",
+                                                           "libnautilus-extension-docs", "rog-control-center", "removed"})
+            self.assertEqual(set(published), {"nautilus-copy-path", "unknown", "qogir-cursor-theme-git"})
+            for name in bases:
+                for suffix in ("", ".sig", ".buildbot.json"):
+                    self.assertEqual((root / (name + ".pkg.tar.zst" + suffix)).exists(), name in published)
+
+    def test_remove_unlisted_packages_preserves_reintroduced_nautilus(self):
+        for packages, metadata in (
+                ({"nautilus": {"url": "https://example.com/nautilus.git"}}, {}),
+                ({"renamed": {"url": "https://example.com/nautilus.git"}},
+                 {"renamed": {"pkgbase": "nautilus", "names": ["libnautilus-extension"]}})):
+            with self.subTest(packages=packages), patch.object(buildbot, "log"):
+                published = {"libnautilus-extension": {"pkgbase": "nautilus", "_path": "unused"}}
+                self.assertEqual(buildbot.remove_unlisted_packages(packages, metadata, published), {})
+                self.assertIn("libnautilus-extension", published)
+
     def test_nvchecker_upstream_links_include_release_and_changes(self):
         links = dict(buildbot.nvchecker_upstream_links(
             {"source": "git", "git": "https://github.com/example/project.git", "prefix": "v"},

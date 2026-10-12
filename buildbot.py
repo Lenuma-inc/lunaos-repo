@@ -524,8 +524,9 @@ def published_packages():
 
 
 def remove_unlisted_packages(packages, metadata, published):
-    """Remove published archives whose recorded source left the manifest."""
+    """Remove retired legacy packages and archives whose source left the manifest."""
     active_sources = {row["url"] for row in packages.values()}
+    retired_bases = set((ROOT / "retired-pkgbases.txt").read_text().split())
     active_names = set(packages)
     for directory, info in metadata.items():
         active_names.update(info.get("names", []))
@@ -534,7 +535,9 @@ def remove_unlisted_packages(packages, metadata, published):
     for name, info in list(published.items()):
         provenance = info.get("buildbot", {})
         source = provenance.get("source_url")
-        if (not source or source in active_sources or name in active_names or
+        # Legacy archives have no source sidecar; explicit pkgbases also cover split packages.
+        retired_legacy = not source and info.get("pkgbase", name) in retired_bases
+        if ((not source and not retired_legacy) or source in active_sources or name in active_names or
                 info.get("pkgbase", name) in active_names):
             continue
         archive = Path(info["_path"])

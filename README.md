@@ -37,3 +37,5 @@ Builds are isolated: one failure does not stop unrelated packages. Packages that
 The bot also checks for newer Arch and upstream versions and opens issues when a package needs updating or rebuilding. It does not silently publish a rebuild with the same or a lower package version; it asks for a `pkgrel` bump instead.
 
 Open a workflow run to see package results and logs. To start one manually, go to **Actions → LunaOS Repo Update → Run workflow**. Choose **Rebuild every package**, or list package directories to rebuild those packages and their dependents. Package sources and build options are listed in [`packages.tsv`](packages.tsv).
+
+Removing a source from `packages.tsv` also removes its published packages when their `.buildbot.json` records that source. For older archives without these sidecars, add their `pkgbase` to [`retired-pkgbases.txt`](retired-pkgbases.txt); this includes split packages. Active package names and bases remain protected from removal.

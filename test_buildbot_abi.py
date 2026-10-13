@@ -92,6 +92,9 @@ class ArchiveScanTests(unittest.TestCase):
                     previous["example"].update(abi_pending=True, pending_source="abc", status="needs-pkgrel")
                 triggers = {} if pending else {"example": {"published_version": "1-1", "versions": {}, "reason": "ABI changed"}}
                 published = {"example": {"pkgver": "1-1", "_path": str(destination / "old.pkg.tar.zst")}}
+                retired_archive = destination / "rog-control-center.pkg.tar.zst"
+                retired_archive.touch()
+                published["rog-control-center"] = {"pkgbase": "asusctl", "_path": str(retired_archive)}
 
                 def run(args, **kwargs):
                     if args[0] == "vercmp":
@@ -121,7 +124,12 @@ class ArchiveScanTests(unittest.TestCase):
                     for name, value in mocks.items():
                         stack.enter_context(patch.object(buildbot, name, value))
                     self.assertEqual(buildbot.main(), 0)
-                result = json.loads((logs / "results.json").read_text())["example"]
+                results = json.loads((logs / "results.json").read_text())
+                self.assertEqual(results["rog-control-center"]["status"], "removed")
+                self.assertFalse(retired_archive.exists())
+                self.assertNotIn("rog-control-center", json.loads((logs / "plan.json").read_text())["order"])
+                self.assertEqual(mocks["outputs"].call_args.kwargs["repository_changed"], 1)
+                result = results["example"]
                 self.assertEqual(result["status"], expected)
                 builds = [call for call in mocks["run"].call_args_list if "makepkg" in call.args[0]]
                 self.assertEqual(len(builds), int(dynamic))

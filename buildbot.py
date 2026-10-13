@@ -1214,7 +1214,8 @@ def main():
     missing_archives = {name for name, info in metadata.items() if info.get("names") and
                         any(pkg not in published for pkg in info["names"])}
     skipped = {name for name, result in results.items() if result["status"] in {"up-to-date", "needs-pkgrel"}}
-    seeds = set(packages) if full else (changed | requested | retry | missing_metadata | missing_archives | results.keys()) - skipped
+    seeds = set(packages) if full else (changed | requested | retry | missing_metadata | missing_archives |
+                                       (results.keys() & packages.keys())) - skipped
     # Runtime-only changes do not require rebuilding metapackages, themes or settings.
     rebuild_dependents = {name: {child for child in children if
         metadata[child].get("architectures") != ["any"] or

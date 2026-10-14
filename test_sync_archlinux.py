@@ -29,10 +29,11 @@ if stage == 'metadata':
         shutil.copyfile(source, Path(target) / source.name)
 if stage == 'packages':
     target = re.search(r'cls -1 > "([^\"]+)"', commands).group(1)
-    names = ['pkg-1-1-any.pkg.tar.zst', 'pkg-1-1-any.pkg.tar.zst.sig',
+    package = os.environ.get('SYNC_TEST_PACKAGE', 'pkg-1-1-any.pkg.tar.zst')
+    names = [package, package + '.sig',
              'old-1-1-any.pkg.tar.zst', 'old-1-1-any.pkg.tar.zst.sig', repo + '.db', repo + '.db.sig', 'README', 'bad"pkg.tar.zst']
     if os.environ.get('SYNC_TEST_MISSING'):
-        names.remove('pkg-1-1-any.pkg.tar.zst.sig')
+        names.remove(package + '.sig')
     Path(target).write_text('\n'.join(names) + '\n')
 '''
 
@@ -99,6 +100,19 @@ class SyncTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertNotIn('synchronization completed', result.stdout)
                 self.assertEqual(self.calls()[-1]['stage'], stage)
+
+    def test_xz_package_and_signature_are_synchronized(self):
+        package = 'sigrok-firmware-fx2lafw-0.1.7-1-any.pkg.tar.xz'
+        for repo in ('core', 'multilib', 'extra'):
+            for suffix in ('db', 'files'):
+                self.database(self.root / 'fixtures' / repo / (repo + '.' + suffix), package)
+        result = self.run_sync(SYNC_TEST_PACKAGE=package)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual([call['stage'] for call in self.calls()], ['metadata', 'packages', 'publish'] * 3)
+        for call in self.calls():
+            if call['stage'] == 'publish':
+                self.assertNotIn('rm "' + package + '"', call['commands'])
+                self.assertNotIn('rm "' + package + '.sig"', call['commands'])
 
     def test_missing_signature_blocks_database_publication_and_deletion(self):
         result = self.run_sync(SYNC_TEST_MISSING='1')

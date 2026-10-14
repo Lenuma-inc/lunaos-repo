@@ -13,7 +13,7 @@ fi
 MIRROR_BASE='https://mirrors.ocf.berkeley.edu/archlinux'
 LFTP_HOST='ftp.ru1.storage.beget.cloud'
 PARALLEL_JOBS=5
-PACKAGE_PATTERN='^[a-zA-Z0-9][a-zA-Z0-9_@+:.%-]*[.]pkg[.]tar[.]zst$'
+PACKAGE_PATTERN='^[a-zA-Z0-9][a-zA-Z0-9_@+:.%-]*[.]pkg[.]tar[.](zst|xz)$'
 TEMP_DIR=$(mktemp -d -t arch-mirror.XXXXXXXXXX)
 trap 'rm -rf -- "$TEMP_DIR"' EXIT
 trap 'echo "[ERROR] Mirror sync failed at line $LINENO" >&2' ERR

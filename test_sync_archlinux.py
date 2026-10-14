@@ -1,3 +1,4 @@
+import base64
 import io
 import json
 import os
@@ -17,24 +18,35 @@ commands = sys.stdin.read()
 root = Path(os.environ['SYNC_TEST_ROOT'])
 repo = re.search(r'archlinux/(core|multilib|extra)/|archlinux-mirror/(core|multilib|extra)/', commands)
 repo = next(value for value in repo.groups() if value)
-stage = 'packages' if 'cls -1' in commands else 'publish' if 'mirror --reverse' in commands else 'metadata'
+stage = 'packages' if 'mirror --reverse' in commands and 'cls -1' in commands else 'probe' if 'cls -1' in commands else 'publish' if 'mirror --reverse' in commands else 'metadata'
 with (root / 'calls.jsonl').open('a') as output:
     settings = Path(re.search(r'source "([^"]+)"', commands).group(1)).read_text()
-    output.write(json.dumps({'repo': repo, 'stage': stage, 'commands': commands, 'settings': settings}) + '\n')
+    transfer = []
+    if stage == 'packages':
+        manifest = re.search(r'--include-glob-from="([^"]+)"', commands).group(1)
+        transfer = Path(manifest).read_text().splitlines()
+    output.write(json.dumps({'repo': repo, 'stage': stage, 'commands': commands, 'settings': settings, 'transfer': transfer}) + '\n')
 if os.environ.get('SYNC_TEST_FAIL') == stage:
     sys.exit(7)
 if stage == 'metadata':
     target = re.search(r'"https://[^\"]+" "([^\"]+)"', commands).group(1)
     for source in (root / 'fixtures' / repo).iterdir():
         shutil.copyfile(source, Path(target) / source.name)
-if stage == 'packages':
-    target = re.search(r'cls -1 > "([^\"]+)"', commands).group(1)
+if stage in ('probe', 'packages'):
     package = os.environ.get('SYNC_TEST_PACKAGE', 'pkg-1-1-any.pkg.tar.zst')
     names = [package, package + '.sig',
              'old-1-1-any.pkg.tar.zst', 'old-1-1-any.pkg.tar.zst.sig', repo + '.db', repo + '.db.sig', 'README', 'bad"pkg.tar.zst']
     if os.environ.get('SYNC_TEST_MISSING'):
         names.remove(package + '.sig')
-    Path(target).write_text('\n'.join(names) + '\n')
+    if os.environ.get('SYNC_TEST_EMPTY_REMOTE') and stage == 'probe':
+        names = []
+    size = int(os.environ.get('SYNC_TEST_REMOTE_SIZE', '3')) if stage == 'probe' or os.environ.get('SYNC_TEST_CORRUPT_AFTER') else 3
+    sizes = {name: size if name == package else 9 for name in names}
+    sized_listing = re.search(r'cls -1 --size --block-size=1 > "([^"]+)"', commands).group(1)
+    Path(sized_listing).write_text(''.join(f'{sizes[name]} {name}\n' for name in names))
+    if stage == 'packages':
+        target = re.search(r'cls -1 > "([^"]+)"', commands).group(1)
+        Path(target).write_text('\n'.join(names) + '\n')
 '''
 
 
@@ -57,7 +69,8 @@ class SyncTests(unittest.TestCase):
                 self.database(directory / (repo + '.' + suffix))
 
     def database(self, path, filename='pkg-1-1-any.pkg.tar.zst'):
-        content = ('%FILENAME%\n' + filename + '\n').encode()
+        signature = base64.b64encode(b'signature').decode()
+        content = f'%FILENAME%\n{filename}\n\n%CSIZE%\n3\n\n%PGPSIG%\n{signature}\n'.encode()
         with tarfile.open(path, 'w:gz') as archive:
             entry = tarfile.TarInfo('pkg-1-1/desc')
             entry.size = len(content)
@@ -75,7 +88,7 @@ class SyncTests(unittest.TestCase):
         result = self.run_sync()
         self.assertEqual(result.returncode, 0, result.stderr)
         calls = self.calls()
-        self.assertEqual([call['stage'] for call in calls], ['metadata', 'packages', 'publish'] * 3)
+        self.assertEqual([call['stage'] for call in calls], ['metadata', 'probe', 'packages', 'publish'] * 3)
         for call in calls:
             self.assertIn('set ftp:ssl-force yes', call['settings'])
             self.assertIn('set ftp:ssl-protect-data yes', call['settings'])
@@ -93,13 +106,43 @@ class SyncTests(unittest.TestCase):
                 self.assertIn('rm "' + call['repo'] + '.db.sig"', commands)
 
     def test_transfer_failures_are_not_reported_as_success(self):
-        for stage in ('metadata', 'packages', 'publish'):
+        for stage in ('metadata', 'probe', 'packages', 'publish'):
             with self.subTest(stage=stage):
                 (self.root / 'calls.jsonl').unlink(missing_ok=True)
                 result = self.run_sync(SYNC_TEST_FAIL=stage)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertNotIn('synchronization completed', result.stdout)
                 self.assertEqual(self.calls()[-1]['stage'], stage)
+
+    def test_matching_exact_sizes_skip_existing_packages_and_signatures(self):
+        result = self.run_sync()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for call in self.calls():
+            if call['stage'] == 'packages':
+                self.assertEqual(call['transfer'], [])
+                self.assertIn('--transfer-all', call['commands'])
+                self.assertIn('cache flush', call['commands'])
+        self.assertIn('0 of 2 files need transfer', result.stdout)
+
+    def test_truncated_package_is_selected_without_resending_its_signature(self):
+        result = self.run_sync(SYNC_TEST_REMOTE_SIZE='2')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for call in self.calls():
+            if call['stage'] == 'packages':
+                self.assertEqual(call['transfer'], ['pkg-1-1-any.pkg.tar.zst'])
+
+    def test_empty_remote_directory_selects_all_required_files(self):
+        result = self.run_sync(SYNC_TEST_EMPTY_REMOTE='1')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for call in self.calls():
+            if call['stage'] == 'packages':
+                self.assertEqual(set(call['transfer']), {'pkg-1-1-any.pkg.tar.zst', 'pkg-1-1-any.pkg.tar.zst.sig'})
+
+    def test_size_mismatch_after_upload_blocks_database_publication(self):
+        result = self.run_sync(SYNC_TEST_REMOTE_SIZE='2', SYNC_TEST_CORRUPT_AFTER='1')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('incomplete packages', result.stderr)
+        self.assertEqual([call['stage'] for call in self.calls()], ['metadata', 'probe', 'packages'])
 
     def test_xz_package_and_signature_are_synchronized(self):
         package = 'sigrok-firmware-fx2lafw-0.1.7-1-any.pkg.tar.xz'
@@ -108,7 +151,7 @@ class SyncTests(unittest.TestCase):
                 self.database(self.root / 'fixtures' / repo / (repo + '.' + suffix), package)
         result = self.run_sync(SYNC_TEST_PACKAGE=package)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual([call['stage'] for call in self.calls()], ['metadata', 'packages', 'publish'] * 3)
+        self.assertEqual([call['stage'] for call in self.calls()], ['metadata', 'probe', 'packages', 'publish'] * 3)
         for call in self.calls():
             if call['stage'] == 'publish':
                 self.assertNotIn('rm "' + package + '"', call['commands'])
@@ -117,7 +160,7 @@ class SyncTests(unittest.TestCase):
     def test_missing_signature_blocks_database_publication_and_deletion(self):
         result = self.run_sync(SYNC_TEST_MISSING='1')
         self.assertNotEqual(result.returncode, 0)
-        self.assertEqual([call['stage'] for call in self.calls()], ['metadata', 'packages'])
+        self.assertEqual([call['stage'] for call in self.calls()], ['metadata', 'probe', 'packages'])
 
     def test_invalid_or_inconsistent_snapshots_block_package_transfer(self):
         for filename in ('../../escape.pkg.tar.zst', 'other-1-1-any.pkg.tar.zst'):

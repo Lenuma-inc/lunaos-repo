@@ -63,15 +63,53 @@ EOF
     awk '{ print; print $0 ".sig" }' "$TEMP_DIR/db.names" |
         sort -u > "$TEMP_DIR/required.names"
 
+    # HTTP directory listings contain rounded sizes; the database has exact byte counts.
+    python3 - "$metadata/$repo.db" > "$TEMP_DIR/expected.sizes" <<'PY'
+import base64
+import sys
+import tarfile
+
+with tarfile.open(sys.argv[1]) as archive:
+    for entry in archive.getmembers():
+        if not entry.isfile() or not entry.name.endswith('/desc'):
+            continue
+        with archive.extractfile(entry) as stream:
+            fields = {}
+            for block in stream.read().decode().strip().split('\n\n'):
+                key, _, value = block.partition('\n')
+                fields[key] = value
+        name = fields['%FILENAME%']
+        size = int(fields['%CSIZE%'])
+        if size <= 0:
+            raise ValueError(f'Invalid package size: {name}')
+        signature = fields.get('%PGPSIG%')
+        signature_size = len(base64.b64decode(signature, validate=True)) if signature else '?'
+        print(f'{name}\t{size}')
+        print(f'{name}.sig\t{signature_size}')
+PY
+    lftp -u "$FTP_USERNAME,$FTP_PASSWORD" "$LFTP_HOST" <<EOF
+source "$TEMP_DIR/lftp.conf"
+mkdir -p "$target_dir"
+cd "$target_dir"
+cls -1 --size --block-size=1 > "$TEMP_DIR/remote.sizes"
+bye
+EOF
+    awk 'FILENAME == ARGV[1] { if ($1 ~ /^[0-9]+$/) sizes[$2] = $1; next }
+         $2 == "?" || !($1 in sizes) || sizes[$1] != $2 { print $1 }' \
+        "$TEMP_DIR/remote.sizes" "$TEMP_DIR/expected.sizes" > "$TEMP_DIR/transfer.names"
+    echo "[INFO] $repo: $(wc -l < "$TEMP_DIR/transfer.names") of $(wc -l < "$TEMP_DIR/required.names") files need transfer"
+
     # Reuse FTP connections and publish each upload only when it is complete.
     lftp -u "$FTP_USERNAME,$FTP_PASSWORD" "$LFTP_HOST" <<EOF
 source "$TEMP_DIR/lftp.conf"
 mkdir -p "$BUCKET_NAME/archlinux-mirror/$repo/os/x86_64"
-mirror --reverse --no-recursion --dereference --no-perms --ignore-time \
+mirror --reverse --no-recursion --dereference --no-perms --transfer-all \
     --parallel=$PARALLEL_JOBS --verbose --exclude-glob '*' \
-    --include-glob-from="$TEMP_DIR/required.names" "$source_url" "$target_dir"
+    --include-glob-from="$TEMP_DIR/transfer.names" "$source_url" "$target_dir"
 cd "$BUCKET_NAME/archlinux-mirror/$repo/os/x86_64"
+cache flush
 cls -1 > "$TEMP_DIR/remote.names"
+cls -1 --size --block-size=1 > "$TEMP_DIR/remote.sizes"
 bye
 EOF
     sort -u "$TEMP_DIR/remote.names" > "$TEMP_DIR/remote.sorted"
@@ -79,6 +117,14 @@ EOF
     if [[ -s "$TEMP_DIR/missing.names" ]]; then
         echo "[ERROR] $repo is missing packages or signatures; keeping published databases" >&2
         cat "$TEMP_DIR/missing.names" >&2
+        exit 1
+    fi
+    awk 'FILENAME == ARGV[1] { if ($1 ~ /^[0-9]+$/) sizes[$2] = $1; next }
+         !($1 in sizes) || sizes[$1] <= 0 || ($2 != "?" && sizes[$1] != $2) { print $1 }' \
+        "$TEMP_DIR/remote.sizes" "$TEMP_DIR/expected.sizes" > "$TEMP_DIR/incorrect.sizes"
+    if [[ -s "$TEMP_DIR/incorrect.sizes" ]]; then
+        echo "[ERROR] $repo has incomplete packages or signatures; keeping published databases" >&2
+        cat "$TEMP_DIR/incorrect.sizes" >&2
         exit 1
     fi
 

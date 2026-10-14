@@ -518,13 +518,19 @@ def published_packages():
                     stale_info = previous if comparison > 0 else info
                     stale = Path(stale_info["_path"]) if comparison > 0 else path
                     current = info if comparison > 0 else previous
-                    stale.unlink()
+                    for suffix in ("", ".sig", ".buildbot.json"):
+                        Path(str(stale) + suffix).unlink(missing_ok=True)
                     log("stale-published-archive-pruned", package=name, stale_version=stale_info["pkgver"],
                         path=str(stale), kept=current["pkgver"])
                     if comparison < 0:
                         continue
                 info["_path"] = str(path)
                 result[name] = info
+    for suffix in (".sig", ".buildbot.json"):
+        for item in PKGDEST.glob("*.pkg.tar.zst" + suffix):
+            if not Path(str(item)[:-len(suffix)]).is_file():
+                item.unlink()
+                log("orphaned-published-file-pruned", path=str(item))
     return result
 
 
@@ -840,8 +846,19 @@ def cleanup_issues(packages, published, metadata, arch_updates, arch_versions, m
             else:
                 target = re.search(rf"<!-- lunaos-buildbot:nvchecker:{re.escape(name)}:([^ >]+) -->", body)
                 current = package_version(name)
-                if target and current and int(run(["vercmp", upstream_version(current), target[1]])) >= 0:
-                    reason = f"Resolved: LunaOS publishes `{current}`, which includes upstream `{target[1]}`."
+                if target and current:
+                    if int(run(["vercmp", upstream_version(current), target[1]])) >= 0:
+                        reason = f"Resolved: LunaOS publishes `{current}`, which includes upstream `{target[1]}`."
+                    else:
+                        updated_body = re.sub(r"LunaOS publishes `[^`]+`", f"LunaOS publishes `{current}`", body)
+                        if updated_body != body:
+                            try:
+                                body_path = LOGDIR / f"{name}-nvchecker-issue.md"
+                                body_path.write_text(updated_body)
+                                run(["gh", "issue", "edit", str(issue["number"]), "--body-file", body_path])
+                                log("nvchecker-issue-updated", name=name, issue=issue["number"], published=current)
+                            except Exception as exc:
+                                log("nvchecker-issue-update-failed", name=name, error=str(exc))
         elif kind == "update" and (legacy_bot_issue or f"<!-- lunaos-buildbot:arch:{name}:" in body):
             owner = packages.get(name)
             if not owner or not lunaos_source(owner):
@@ -1060,9 +1077,10 @@ def main():
     metadata_only_changes = {}
     metadata = {name: previous.get(name, {}).get("metadata", {}) for name in packages}
     full = os.environ.get("BUILDBOT_FULL", "false").lower() == "true"
+    existing_files = {item.name for item in PKGDEST.iterdir()}
     published = published_packages()
     results.update(remove_unlisted_packages(packages, metadata, published))
-    repository_changed = bool(results)
+    repository_changed = bool(results) or existing_files != {item.name for item in PKGDEST.iterdir()}
     retry = {name for name, info in previous.items() if info.get("status") in FAILURES | {"deferred"}}
 
     def checkpoint():
@@ -1168,17 +1186,18 @@ def main():
         if any(pkg not in published for pkg in info["names"]):
             continue
         with RUNTIME.context(name):
+            source_already_published = published_source_matches(info, published, refs[name])
             comparisons = [int(run(["vercmp", info["version"], published[pkg]["pkgver"]])) for pkg in info["names"]]
             old_info = previous.get(name, {}).get("metadata", {})
             same_tree = info.get("tree") and info.get("tree") == old_info.get("tree")
-            if sources.get(name) and not same_tree and info.get("dynamic_version"):
+            published_dynamic_source = info.get("dynamic_version") and source_already_published
+            if sources.get(name) and not same_tree and info.get("dynamic_version") and not published_dynamic_source:
                 continue  # pkgver() may discover a newer version during the build.
-            if any(value > 0 for value in comparisons):
+            if any(value > 0 for value in comparisons) and not published_dynamic_source:
                 continue
             # A release can be newer than the cache after a publish/cache failure.
             # Only an observed change *within the same declared version* proves
             # a missing pkgrel bump; never infer that from a stale cache alone.
-            source_already_published = published_source_matches(info, published, refs[name])
             inputs_changed = False
             if sources.get(name) and refs[name] != sources[name] and not same_tree:
                 try:

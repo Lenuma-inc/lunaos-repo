@@ -26,6 +26,8 @@ set net:max-retries 3
 set net:reconnect-interval-base 2
 set net:reconnect-interval-max 10
 set ftp:passive-mode yes
+set ftp:ssl-force yes
+set ftp:ssl-protect-data yes
 set xfer:use-temp-file yes
 CONFIG
 
@@ -34,7 +36,7 @@ for repo in core multilib extra; do
     metadata="$TEMP_DIR/$repo"
     mkdir "$metadata"
     source_url="$MIRROR_BASE/$repo/os/x86_64"
-    target_url="ftp://$LFTP_HOST/$BUCKET_NAME/archlinux-mirror/$repo/os/x86_64"
+    target_dir="$BUCKET_NAME/archlinux-mirror/$repo/os/x86_64"
 
     # Pin the databases before copying the packages they reference.
     lftp <<EOF
@@ -65,9 +67,9 @@ EOF
     lftp -u "$FTP_USERNAME,$FTP_PASSWORD" "$LFTP_HOST" <<EOF
 source "$TEMP_DIR/lftp.conf"
 mkdir -p "$BUCKET_NAME/archlinux-mirror/$repo/os/x86_64"
-mirror --no-recursion --dereference --no-perms --ignore-time \
+mirror --reverse --no-recursion --dereference --no-perms --ignore-time \
     --parallel=$PARALLEL_JOBS --verbose --exclude-glob '*' \
-    --include-glob-from="$TEMP_DIR/required.names" "$source_url" "$target_url"
+    --include-glob-from="$TEMP_DIR/required.names" "$source_url" "$target_dir"
 cd "$BUCKET_NAME/archlinux-mirror/$repo/os/x86_64"
 cls -1 > "$TEMP_DIR/remote.names"
 bye
@@ -85,7 +87,7 @@ EOF
     comm -13 "$TEMP_DIR/required.names" "$TEMP_DIR/remote.packages" > "$TEMP_DIR/obsolete.names"
     {
         echo "source \"$TEMP_DIR/lftp.conf\""
-        echo "mirror --reverse --no-recursion --no-perms --transfer-all --verbose \"$metadata\" \"$target_url\""
+        echo "mirror --reverse --no-recursion --no-perms --transfer-all --verbose \"$metadata\" \"$target_dir\""
         echo "cd \"$BUCKET_NAME/archlinux-mirror/$repo/os/x86_64\""
         for database in db files; do
             signature="$repo.$database.sig"

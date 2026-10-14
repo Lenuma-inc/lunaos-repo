@@ -17,9 +17,10 @@ commands = sys.stdin.read()
 root = Path(os.environ['SYNC_TEST_ROOT'])
 repo = re.search(r'archlinux/(core|multilib|extra)/|archlinux-mirror/(core|multilib|extra)/', commands)
 repo = next(value for value in repo.groups() if value)
-stage = 'publish' if 'mirror --reverse' in commands else 'packages' if 'cls -1' in commands else 'metadata'
+stage = 'packages' if 'cls -1' in commands else 'publish' if 'mirror --reverse' in commands else 'metadata'
 with (root / 'calls.jsonl').open('a') as output:
-    output.write(json.dumps({'repo': repo, 'stage': stage, 'commands': commands}) + '\n')
+    settings = Path(re.search(r'source "([^"]+)"', commands).group(1)).read_text()
+    output.write(json.dumps({'repo': repo, 'stage': stage, 'commands': commands, 'settings': settings}) + '\n')
 if os.environ.get('SYNC_TEST_FAIL') == stage:
     sys.exit(7)
 if stage == 'metadata':
@@ -75,6 +76,11 @@ class SyncTests(unittest.TestCase):
         calls = self.calls()
         self.assertEqual([call['stage'] for call in calls], ['metadata', 'packages', 'publish'] * 3)
         for call in calls:
+            self.assertIn('set ftp:ssl-force yes', call['settings'])
+            self.assertIn('set ftp:ssl-protect-data yes', call['settings'])
+            self.assertNotIn('ftp://', call['commands'])
+            if call['stage'] == 'packages':
+                self.assertIn('mirror --reverse', call['commands'])
             if call['stage'] == 'publish':
                 commands = call['commands']
                 self.assertIn('--transfer-all', commands)

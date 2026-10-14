@@ -12,6 +12,8 @@ on:
       - "makepkg.conf"
       - "sign.sh"
       - "update-repo.sh"
+      - "publish-repo.py"
+      - "test_publish_repo.py"
   workflow_dispatch:
     inputs:
       full:
@@ -217,6 +219,9 @@ jobs:
           name: firmware
           path: /tmp/lunaos-input
 
+      - name: Test repository maintenance
+        run: python3 -m unittest test_buildbot_abi test_publish_repo -v
+
       - name: Build changed packages and dependents
         id: buildbot
         run: python3 "$GITHUB_WORKSPACE/buildbot.py"
@@ -231,43 +236,7 @@ jobs:
 
       - name: Publish repository release
         if: steps.buildbot.outputs.repository_changed != '0'
-        run: |
-          release_endpoint="repos/$GH_REPO/releases/tags/$repo"
-          release_error="$RUNNER_TEMP/lunaos-release-error"
-          if release_id=$(gh api "$release_endpoint" --jq .id 2>"$release_error"); then
-            :
-          elif grep -q 'HTTP 404' "$release_error"; then
-            gh release create "$repo" --title "LunaOS package repository" --notes "Updated package repository"
-            release_id=$(gh api "$release_endpoint" --jq .id)
-          else
-            cat "$release_error" >&2
-            exit 1
-          fi
-          gh api --paginate --jq '.[] | [.id, .name] | @tsv' \
-            "repos/$GH_REPO/releases/$release_id/assets" > "$RUNNER_TEMP/lunaos-release-assets.tsv"
-          delete_release_asset() {
-            local asset_id="$1" attempt error_file="$RUNNER_TEMP/lunaos-delete-asset-error"
-            for attempt in 1 2 3; do
-              if gh api --method DELETE "repos/$GH_REPO/releases/assets/$asset_id" >/dev/null 2>"$error_file"; then
-                return 0
-              fi
-              [ "$attempt" -eq 3 ] || sleep "$attempt"
-            done
-            cat "$error_file" >&2
-            return 1
-          }
-          while IFS=$'\t' read -r asset_id asset; do
-            case "$asset" in */*|*\\*) echo "Unsafe release asset name: $asset" >&2; exit 1 ;; esac
-            if [ -e "$PKGDEST/$asset" ]; then
-              delete_release_asset "$asset_id"
-            fi
-          done < "$RUNNER_TEMP/lunaos-release-assets.tsv"
-          gh release upload "$repo" "$PKGDEST"/*
-          while IFS=$'\t' read -r asset_id asset; do
-            [ -e "$PKGDEST/$asset" ] || delete_release_asset "$asset_id"
-          done < "$RUNNER_TEMP/lunaos-release-assets.tsv"
-          gh api --method PATCH "repos/$GH_REPO/releases/$release_id" -F draft=true
-          gh api --method PATCH "repos/$GH_REPO/releases/$release_id" -F draft=false
+        run: python3 "$GITHUB_WORKSPACE/publish-repo.py" release
 
       - name: Upload repository to S3
         if: steps.buildbot.outputs.repository_changed != '0'
@@ -277,15 +246,7 @@ jobs:
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
           LOCAL_DIR: ${{ env.PKGDEST }}/
           SERVER_DIR: ${{ secrets.S3_BUCKET_NAME }}/lunaos-repo/
-        run: |
-          lftp -c "
-            set cmd:fail-exit yes
-            set ftp:ssl-force yes
-            set ssl:check-hostname no
-            set mirror:set-permissions false
-            open -u $FTP_USERNAME,$FTP_PASSWORD $FTP_SERVER
-            mirror --reverse --only-newer --delete --parallel=4 --dereference --verbose $LOCAL_DIR $SERVER_DIR
-          "
+        run: python3 "$GITHUB_WORKSPACE/publish-repo.py" s3
 
       - name: Save package state
         if: success() && hashFiles('.build-state/state.json') != ''

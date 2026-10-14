@@ -47,6 +47,84 @@ class ArchiveScanTests(unittest.TestCase):
                 self.assertEqual(buildbot.remove_unlisted_packages(packages, metadata, published), {})
                 self.assertIn("libnautilus-extension", published)
 
+    def test_pruning_old_archives_removes_signatures_sidecars_and_existing_orphans(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for version in ("70", "74"):
+                name = f"blur-my-shell-{version}-1-any.pkg.tar.zst"
+                for suffix in ("", ".sig", ".buildbot.json"):
+                    (root / (name + suffix)).write_text(version)
+            (root / "orphan.pkg.tar.zst.sig").touch()
+            (root / "orphan.pkg.tar.zst.buildbot.json").touch()
+            (root / "lunaos-repo.db.sig").touch()
+            def info(path):
+                return {"pkgname": "blur-my-shell", "pkgver": path.read_text() + "-1"}
+            with (patch.object(buildbot, "PKGDEST", root), patch.object(buildbot, "archive_info", side_effect=info),
+                  patch.object(buildbot, "run", return_value="1"), patch.object(buildbot, "log")):
+                published = buildbot.published_packages()
+            self.assertEqual(published["blur-my-shell"]["pkgver"], "74-1")
+            self.assertEqual({path.name for path in root.iterdir()},
+                             {"blur-my-shell-74-1-any.pkg.tar.zst", "blur-my-shell-74-1-any.pkg.tar.zst.sig",
+                              "blur-my-shell-74-1-any.pkg.tar.zst.buildbot.json", "lunaos-repo.db.sig"})
+
+    def test_orphan_cleanup_requests_publication_without_rebuilding_packages(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            destination, work, logs = root / "repo", root / "work", root / "logs"
+            for path in (destination, work, logs):
+                path.mkdir()
+            orphan = destination / "old.pkg.tar.zst.sig"
+            orphan.touch()
+            info = {"names": ["example"], "version": "1-1", "nvchecker_revision": "abc"}
+            published = {"example": {"pkgver": "1-1", "_path": "example.pkg.tar.zst"}}
+            def published_packages():
+                orphan.unlink()
+                return published
+            mocks = {"RUNTIME": MagicMock(), "WORK": work, "PKGDEST": destination, "LOGDIR": logs,
+                     "STATE_PATH": root / "state.json", "read_manifest": MagicMock(return_value={"example": {"directory": "example"}}),
+                     "load_state": MagicMock(return_value=({"example": "abc"}, {"example": {"metadata": info}})),
+                     "source_sha": MagicMock(return_value="abc"), "published_packages": MagicMock(side_effect=published_packages),
+                     "remove_unlisted_packages": MagicMock(return_value={}), "check_arch_updates": MagicMock(return_value=(set(), {})),
+                     "check_nvchecker_updates": MagicMock(return_value=(set(), {})), "cleanup_issues": MagicMock(),
+                     "graph": MagicMock(return_value=({"example": set()}, {"example": set()})),
+                     "available_versions": MagicMock(return_value={}), "elf_rebuild_triggers": MagicMock(return_value={}),
+                     "outputs": MagicMock(), "emit_summary": MagicMock(), "log": MagicMock()}
+            with ExitStack() as stack:
+                stack.enter_context(patch.dict(buildbot.os.environ, {"BUILDBOT_PACKAGES": "", "BUILDBOT_FULL": "false"}))
+                for name, value in mocks.items():
+                    stack.enter_context(patch.object(buildbot, name, value))
+                self.assertEqual(buildbot.main(), 0)
+            self.assertEqual(mocks["outputs"].call_args.kwargs["repository_changed"], 1)
+            self.assertEqual(mocks["outputs"].call_args.kwargs["packages_built"], 0)
+
+    def test_nvchecker_issue_reflects_newly_built_version_until_upstream_is_reached(self):
+        name = "gnome-shell-extension-blur-my-shell"
+        packages = {name: {"directory": name, "url": "https://gitlab.com/LunaOS/blur-my-shell.git"}}
+        body = ("The package source declares `74`; LunaOS publishes `73-1`.\n\n"
+                "[Changes](https://github.com/aunetx/blur-my-shell/compare/v74...v75)\n\n"
+                f"<!-- lunaos-buildbot:nvchecker:{name}:75 -->")
+        issue = {"number": 41, "title": f"[update] {name}: update upstream package", "body": body}
+        for current in ("74-1", "75-1"):
+            with self.subTest(current=current), tempfile.TemporaryDirectory() as temp:
+                def run(args, **kwargs):
+                    if args[:3] == ["gh", "issue", "list"]:
+                        return json.dumps([issue])
+                    if args[0] == "vercmp":
+                        return "0" if args[1] == "75" else "-1"
+                    return ""
+                with (patch.object(buildbot, "LOGDIR", Path(temp)), patch.object(buildbot, "run", side_effect=run) as command,
+                      patch.object(buildbot, "log")):
+                    buildbot.cleanup_issues(packages, {name: {"pkgver": current}}, {}, set(), {})
+                edits = [call for call in command.call_args_list if call.args[0][:3] == ["gh", "issue", "edit"]]
+                closes = [call for call in command.call_args_list if call.args[0][:3] == ["gh", "issue", "close"]]
+                self.assertEqual(len(edits), int(current == "74-1"))
+                self.assertEqual(len(closes), int(current == "75-1"))
+                if edits:
+                    updated = (Path(temp) / (name + "-nvchecker-issue.md")).read_text()
+                    self.assertIn("LunaOS publishes `74-1`", updated)
+                    self.assertIn("compare/v74...v75", updated)
+                    self.assertIn("blur-my-shell:75 -->", updated)
+
     def test_nvchecker_upstream_links_include_release_and_changes(self):
         links = dict(buildbot.nvchecker_upstream_links(
             {"source": "git", "git": "https://github.com/example/project.git", "prefix": "v"},
@@ -136,6 +214,51 @@ class ArchiveScanTests(unittest.TestCase):
                 self.assertEqual(mocks["promote"].call_count, int(expected == "built"))
                 if expected == "built":
                     mocks["create_pkgrel_issue"].assert_not_called()
+
+    def test_dynamic_placeholder_does_not_rebuild_an_already_published_source_after_cold_cache(self):
+        for source_time, expected_builds in ((100, 0), (300, 1)):
+            with self.subTest(source_time=source_time), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                work, destination, logs = root / "work", root / "repo", root / "logs"
+                for directory in (work / "example", destination, logs):
+                    directory.mkdir(parents=True)
+                row = {"directory": "example", "url": "https://gitlab.com/LunaOS/example.git", "ref": "HEAD",
+                       "makepkg_flags": "-s", "before": "", "after": ""}
+                info = {"names": ["example"], "version": ".-1", "dynamic_version": True,
+                        "tree": "tree", "source_timestamp": source_time, "nvchecker_revision": "abc"}
+                published = {"example": {"pkgver": "r1.abc-1", "_path": str(destination / "old.pkg.tar.zst"),
+                                         "builddate": "200"}}
+                def run(args, **kwargs):
+                    if args[0] == "vercmp":
+                        return "1" if args[1] == ".-1" else "0"
+                    if "makepkg" in args:
+                        Path(kwargs["env"]["PKGDEST"], "new.pkg.tar.zst").touch()
+                    return ""
+                mocks = {"RUNTIME": MagicMock(), "WORK": work, "PKGDEST": destination, "LOGDIR": logs,
+                         "STATE_PATH": root / "state.json", "read_manifest": MagicMock(return_value={"example": row}),
+                         "load_state": MagicMock(return_value=({}, {"example": {"metadata": info.copy()}})),
+                         "source_sha": MagicMock(return_value="abc"), "published_packages": MagicMock(return_value=published),
+                         "remove_unlisted_packages": MagicMock(return_value={}), "clone": MagicMock(return_value=(work / "example", "abc")),
+                         "package_info": MagicMock(return_value=info), "check_arch_updates": MagicMock(return_value=(set(), {})),
+                         "check_nvchecker_updates": MagicMock(return_value=(set(), {})), "cleanup_issues": MagicMock(),
+                         "graph": MagicMock(return_value=({"example": set()}, {"example": set()})),
+                         "available_versions": MagicMock(return_value={}), "elf_rebuild_triggers": MagicMock(return_value={}),
+                         "run": MagicMock(side_effect=run), "build_environment": MagicMock(return_value={}),
+                         "installed_versions": MagicMock(return_value={}), "dependency_versions": MagicMock(return_value={}),
+                         "archive_info": MagicMock(return_value={"pkgname": "example", "pkgver": "r1.abc-1"}),
+                         "emit_summary": MagicMock(), "outputs": MagicMock(), "log": MagicMock()}
+                with ExitStack() as stack:
+                    stack.enter_context(patch.dict(buildbot.os.environ, {"BUILDBOT_PACKAGES": "", "BUILDBOT_FULL": "false"}))
+                    for name, value in mocks.items():
+                        stack.enter_context(patch.object(buildbot, name, value))
+                    self.assertEqual(buildbot.main(), 0)
+                builds = [call for call in mocks["run"].call_args_list if "makepkg" in call.args[0]]
+                self.assertEqual(len(builds), expected_builds)
+                state = json.loads((root / "state.json").read_text())
+                if not expected_builds:
+                    self.assertEqual(state["sources"]["example"], "abc")
+                else:
+                    self.assertNotIn("example", state["sources"])
 
     def test_old_provider_uses_matching_lunaos_release(self):
         provider = "gnome-shell-extension-appindicator"

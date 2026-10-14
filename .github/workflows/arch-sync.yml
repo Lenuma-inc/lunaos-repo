@@ -34,7 +34,7 @@ jobs:
       - name: Prepare Arch Linux container
         run: |
           pacman -Syuu --noconfirm --disable-download-timeout --needed \
-            curl lftp wget
+            curl lftp wget python
           pacman-key --init
           pacman -S --noconfirm archlinux-keyring || true
           # Remove broken cache directories before cleaning
@@ -47,4 +47,5 @@ jobs:
       - name: Run Arch Linux mirror sync
         run: |
           chmod +x ./sync-archlinux.sh
+          python -m unittest test_sync_archlinux.py -v
           ./sync-archlinux.sh

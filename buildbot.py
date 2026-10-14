@@ -431,6 +431,11 @@ def elf_rebuild_triggers(packages, published, available, previous, refs, metadat
                         local = published.get(dependency)
                         if local and int(run(["vercmp", local["pkgver"], old_version])) == 0:
                             old_path = local["_path"]
+                        elif arch_version(dependency) is None:
+                            provider_cache[key] = (None, None)
+                            log("abi-provider-unavailable", dependency=dependency, old=old_version,
+                                current=new_version, reason="old release archive missing; not an official Arch package")
+                            continue
                         else:
                             old_path = arch_archive(dependency, old_version, Path(temp) / "old.pkg.tar.zst")
                         if local and int(run(["vercmp", local["pkgver"], new_version])) == 0:

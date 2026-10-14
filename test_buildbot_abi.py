@@ -160,6 +160,50 @@ class ArchiveScanTests(unittest.TestCase):
                 self.assertEqual(scan.call_args_list[1].args[0], old_path)
                 self.assertEqual(old_download.call_count, int(published_version != "66-1"))
 
+    def test_missing_old_aur_provider_is_cached_without_arch_archive_requests(self):
+        provider = "gnome-tuner"
+        consumer = {"_path": "consumer.pkg.tar.zst", "pkgver": "1-1",
+                    "depends": [provider], "installed": [f"{provider}-0.7.3-1-x86_64"]}
+        packages = {name: {"directory": name} for name in ("consumer", "second")}
+        published = {name: dict(consumer) for name in packages}
+        published[provider] = {"pkgver": "0.7.4-1", "_path": "gnome-tuner.pkg.tar.zst"}
+        elf = {"needed": {"libexample.so"}, "provided": set(), "imports": set(), "runtime_dirs": {}}
+        with (patch.object(buildbot, "arch_version", return_value=None),
+              patch.object(buildbot, "run", return_value="-1"),
+              patch.object(buildbot, "archive_elf", return_value=elf) as scan,
+              patch.object(buildbot, "arch_archive") as old_download,
+              patch.object(buildbot, "current_arch_archive") as new_download,
+              patch.object(buildbot, "log") as log):
+            triggers = buildbot.elf_rebuild_triggers(packages, published, {provider: "0.7.4-1"}, {}, {}, {})
+        self.assertEqual(triggers, {})
+        old_download.assert_not_called()
+        new_download.assert_not_called()
+        self.assertEqual(scan.call_count, 2)
+        log.assert_called_once()
+        self.assertEqual(log.call_args.args[0], "abi-provider-unavailable")
+        self.assertEqual(log.call_args.kwargs["dependency"], provider)
+
+    def test_matching_old_aur_release_still_scans_the_current_provider(self):
+        provider = "gnome-tuner"
+        packages = {"consumer": {"directory": "consumer"}}
+        published = {"consumer": {"_path": "consumer.pkg.tar.zst", "pkgver": "1-1",
+                                  "depends": [provider], "installed": [f"{provider}-0.7.3-1-x86_64"]},
+                     provider: {"pkgver": "0.7.3-1", "_path": "old-gnome-tuner.pkg.tar.zst"}}
+        elf = {"needed": {"libexample.so"}, "provided": set(), "imports": set(),
+               "exports_by_soname": {}, "runtime_dirs": {}}
+        def vercmp(args, **kwargs):
+            return "0" if args[1] == args[2] else "-1"
+        with (patch.object(buildbot, "arch_version", return_value=None),
+              patch.object(buildbot, "run", side_effect=vercmp),
+              patch.object(buildbot, "archive_elf", return_value=elf) as scan,
+              patch.object(buildbot, "arch_archive") as old_download,
+              patch.object(buildbot, "current_arch_archive", return_value="new-gnome-tuner.pkg.tar.zst") as new_download):
+            buildbot.elf_rebuild_triggers(packages, published, {provider: "0.7.4-1"}, {}, {}, {})
+        old_download.assert_not_called()
+        new_download.assert_called_once()
+        self.assertEqual(scan.call_args_list[1].args[0], "old-gnome-tuner.pkg.tar.zst")
+        self.assertEqual(scan.call_args_list[2].args[0], "new-gnome-tuner.pkg.tar.zst")
+
     def test_paths_do_not_include_verbose_dates(self):
         entries = [
             ("usr/bin/tool with spaces", "-rwxr-xr-x"),
@@ -250,7 +294,7 @@ class ArchiveScanTests(unittest.TestCase):
                      "example": {"_path": "new-lunaos.pkg.tar.zst", "pkgver": "2-1"}}
         for consumer, old, new, expected_reason in cases:
             with self.subTest(expected_reason=expected_reason):
-                with (patch.object(buildbot, "arch_version", return_value=None),
+                with (patch.object(buildbot, "arch_version", side_effect=lambda name: "2-1" if name == "example" else None),
                       patch.object(buildbot, "run", side_effect=lambda args, **kw: "0" if args[1] == args[2] else "-1"),
                       patch.object(buildbot, "archive_elf", side_effect=[empty | consumer, empty | old, empty | new]),
                       patch.object(buildbot, "arch_archive", return_value="old-arch.pkg.tar.zst"),

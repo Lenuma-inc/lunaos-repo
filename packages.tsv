@@ -58,7 +58,7 @@ gnome-shell-extension-bluetooth-battery-meter	https://gitlab.com/LunaOS/pkgbuild
 gnome-shell-extension-legacy-theme-auto-switcher	https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-legacy-theme-auto-switcher.git	HEAD	-s		
 gnome-shell-extension-gjs-osk-git	https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-gjs-osk-git.git	HEAD	-s		
 adw-gtk-theme	https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/adw-gtk-theme.git	HEAD	-s		
-gnome-shell-extension-blur-my-shell	https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-blur-my-shell.git	HEAD	-sd		
+gnome-shell-extension-blur-my-shell	https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-blur-my-shell.git	HEAD	-s		
 gnome-shell-extension-dash-to-dock	https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-dash-to-dock.git	HEAD	-s		
 gnome-shell-extension-appindicator	https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-appindicator.git	HEAD	-s		
 gnome-shell-extension-clipboard-indicator	https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/gnome/gnome-extensions/gnome-shell-extension-clipboard-indicator.git	HEAD	-s		

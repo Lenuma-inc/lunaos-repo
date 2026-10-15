@@ -28,6 +28,12 @@ with (root / 'calls.jsonl').open('a') as output:
     output.write(json.dumps({'repo': repo, 'stage': stage, 'commands': commands, 'settings': settings, 'transfer': transfer}) + '\n')
 if os.environ.get('SYNC_TEST_FAIL') == stage:
     sys.exit(7)
+if stage == 'packages' and os.environ.get('SYNC_TEST_RESET'):
+    marker = root / (repo + '.reset')
+    if not marker.exists() or os.environ['SYNC_TEST_RESET'] == 'always':
+        marker.touch()
+        print('mirror: Access failed: 550 Issue during transfer: connection reset by peer (.in.pkg)', file=sys.stderr)
+        sys.exit(7)
 if stage == 'metadata':
     target = re.search(r'"https://[^\"]+" "([^\"]+)"', commands).group(1)
     for source in (root / 'fixtures' / repo).iterdir():
@@ -113,6 +119,19 @@ class SyncTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertNotIn('synchronization completed', result.stdout)
                 self.assertEqual(self.calls()[-1]['stage'], stage)
+
+    def test_connection_reset_retries_before_publication(self):
+        result = self.run_sync(SYNC_TEST_RESET='once')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual([call['stage'] for call in self.calls()],
+                         ['metadata', 'probe', 'packages', 'packages', 'publish'] * 3)
+
+    def test_repeated_connection_reset_blocks_publication(self):
+        result = self.run_sync(SYNC_TEST_RESET='always')
+        self.assertEqual(result.returncode, 7, result.stderr)
+        self.assertEqual([call['stage'] for call in self.calls()],
+                         ['metadata', 'probe', 'packages', 'packages', 'packages'])
+        self.assertNotIn('synchronization completed', result.stdout)
 
     def test_matching_exact_sizes_skip_existing_packages_and_signatures(self):
         result = self.run_sync()

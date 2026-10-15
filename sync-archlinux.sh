@@ -100,7 +100,8 @@ EOF
     echo "[INFO] $repo: $(wc -l < "$TEMP_DIR/transfer.names") of $(wc -l < "$TEMP_DIR/required.names") files need transfer"
 
     # Reuse FTP connections and publish each upload only when it is complete.
-    lftp -u "$FTP_USERNAME,$FTP_PASSWORD" "$LFTP_HOST" <<EOF
+    for attempt in 1 2 3; do
+        if lftp -u "$FTP_USERNAME,$FTP_PASSWORD" "$LFTP_HOST" 2> "$TEMP_DIR/transfer.error" <<EOF
 source "$TEMP_DIR/lftp.conf"
 mkdir -p "$BUCKET_NAME/archlinux-mirror/$repo/os/x86_64"
 mirror --reverse --no-recursion --dereference --no-perms --transfer-all \
@@ -112,6 +113,21 @@ cls -1 > "$TEMP_DIR/remote.names"
 cls -1 --size --block-size=1 > "$TEMP_DIR/remote.sizes"
 bye
 EOF
+        then
+            cat "$TEMP_DIR/transfer.error" >&2
+            break
+        else
+            status=$?
+            cat "$TEMP_DIR/transfer.error" >&2
+            # lftp treats this server-side network failure as a permanent FTP error.
+            if (( attempt == 3 )) ||
+                ! grep -Eq '550 .*connection reset by peer' "$TEMP_DIR/transfer.error"; then
+                exit "$status"
+            fi
+            echo "[WARN] $repo: connection reset; retrying transfer ($attempt/3)" >&2
+            sleep 2
+        fi
+    done
     sort -u "$TEMP_DIR/remote.names" > "$TEMP_DIR/remote.sorted"
     comm -23 "$TEMP_DIR/required.names" "$TEMP_DIR/remote.sorted" > "$TEMP_DIR/missing.names"
     if [[ -s "$TEMP_DIR/missing.names" ]]; then

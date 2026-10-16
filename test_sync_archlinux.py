@@ -96,6 +96,9 @@ class SyncTests(unittest.TestCase):
         calls = self.calls()
         self.assertEqual([call['stage'] for call in calls], ['metadata', 'probe', 'packages', 'publish'] * 3)
         for call in calls:
+            self.assertIn('set log:show-time yes', call['settings'])
+            self.assertIn('set log:show-pid yes', call['settings'])
+            self.assertIn('debug 3', call['settings'])
             self.assertIn('set ftp:ssl-force yes', call['settings'])
             self.assertIn('set ftp:ssl-protect-data yes', call['settings'])
             self.assertNotIn('ftp://', call['commands'])
@@ -123,6 +126,8 @@ class SyncTests(unittest.TestCase):
     def test_connection_reset_retries_before_publication(self):
         result = self.run_sync(SYNC_TEST_RESET='once')
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('[INFO] core: transfer attempt 1/3 (', result.stdout)
+        self.assertIn('[INFO] core: transfer attempt 2/3 (', result.stdout)
         self.assertEqual([call['stage'] for call in self.calls()],
                          ['metadata', 'probe', 'packages', 'packages', 'publish'] * 3)
 

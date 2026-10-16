@@ -19,6 +19,10 @@ trap 'rm -rf -- "$TEMP_DIR"' EXIT
 trap 'echo "[ERROR] Mirror sync failed at line $LINENO" >&2' ERR
 
 cat > "$TEMP_DIR/lftp.conf" <<'CONFIG'
+set log:show-time yes
+set log:show-pid yes
+# Level 5 exposes FTP passwords; level 3 keeps connection events and errors.
+debug 3
 set cmd:fail-exit yes
 set cmd:move-background no
 set net:timeout 30
@@ -101,6 +105,7 @@ EOF
 
     # Reuse FTP connections and publish each upload only when it is complete.
     for attempt in 1 2 3; do
+        echo "[INFO] $repo: transfer attempt $attempt/3 ($(date -u +%FT%TZ))"
         if lftp -u "$FTP_USERNAME,$FTP_PASSWORD" "$LFTP_HOST" 2> "$TEMP_DIR/transfer.error" <<EOF
 source "$TEMP_DIR/lftp.conf"
 mkdir -p "$BUCKET_NAME/archlinux-mirror/$repo/os/x86_64"

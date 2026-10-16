@@ -66,12 +66,13 @@ EOF
         sort -u > "$TEMP_DIR/required.names"
 
     # HTTP directory listings contain rounded sizes; the database has exact byte counts.
-    python3 - "$metadata/$repo.db" > "$TEMP_DIR/expected.sizes" <<'PY'
+    python3 - "$metadata/$repo.db" "$TEMP_DIR/expected.sha256" > "$TEMP_DIR/expected.sizes" <<'PY'
 import base64
+import hashlib
 import sys
 import tarfile
 
-with tarfile.open(sys.argv[1]) as archive:
+with tarfile.open(sys.argv[1]) as archive, open(sys.argv[2], 'w') as checksums:
     for entry in archive.getmembers():
         if not entry.isfile() or not entry.name.endswith('/desc'):
             continue
@@ -86,6 +87,13 @@ with tarfile.open(sys.argv[1]) as archive:
             raise ValueError(f'Invalid package size: {name}')
         signature = fields.get('%PGPSIG%')
         signature_size = len(base64.b64decode(signature, validate=True)) if signature else '?'
+        checksum = fields['%SHA256SUM%']
+        if len(checksum) != 64 or any(c not in '0123456789abcdef' for c in checksum):
+            raise ValueError(f'Invalid package checksum: {name}')
+        checksums.write(f'{checksum}  {name}\n')
+        if signature:
+            digest = hashlib.sha256(base64.b64decode(signature, validate=True)).hexdigest()
+            checksums.write(f'{digest}  {name}.sig\n')
         print(f'{name}\t{size}')
         print(f'{name}.sig\t{signature_size}')
 PY
@@ -104,6 +112,21 @@ EOF
     # Reuse FTP connections and publish each upload only when it is complete.
     for attempt in 1 2 3; do
         source_url="${TRANSFER_MIRRORS[attempt-1]}/$repo/os/x86_64"
+        if (( attempt == 3 )); then
+            echo "[INFO] $repo: retrying upload from local files"
+            staging="$TEMP_DIR/$repo-packages"
+            mkdir "$staging"
+            while IFS= read -r file; do
+                curl --fail --silent --show-error --location --retry 2 \
+                    --output "$staging/$file" "$source_url/$file"
+            done < "$TEMP_DIR/transfer.names"
+            awk 'FILENAME == ARGV[1] { selected[$0] = 1; next }
+                 $2 in selected' "$TEMP_DIR/transfer.names" "$TEMP_DIR/expected.sha256" > "$staging/checksums"
+            if [[ -s "$staging/checksums" ]]; then
+                (cd "$staging" && sha256sum --check --quiet checksums)
+            fi
+            source_url="$staging"
+        fi
         if lftp -u "$FTP_USERNAME,$FTP_PASSWORD" "$LFTP_HOST" 2> "$TEMP_DIR/transfer.error" <<EOF
 source "$TEMP_DIR/lftp.conf"
 mkdir -p "$BUCKET_NAME/archlinux-mirror/$repo/os/x86_64"

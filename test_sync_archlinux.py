@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import io
 import json
 import os
@@ -30,7 +31,7 @@ if os.environ.get('SYNC_TEST_FAIL') == stage:
     sys.exit(7)
 if stage == 'packages' and os.environ.get('SYNC_TEST_RESET'):
     marker = root / (repo + '.reset')
-    if not marker.exists() or os.environ['SYNC_TEST_RESET'] == 'always':
+    if not marker.exists() or os.environ['SYNC_TEST_RESET'] == 'always' or (os.environ['SYNC_TEST_RESET'] == 'remote' and '"https://' in commands):
         marker.touch()
         print('mirror: Access failed: 550 Issue during transfer: connection reset by peer (.in.pkg)', file=sys.stderr)
         sys.exit(7)
@@ -65,6 +66,14 @@ class SyncTests(unittest.TestCase):
         binary.mkdir()
         (binary / 'lftp').write_text(FAKE_LFTP)
         (binary / 'lftp').chmod(0o755)
+        (binary / 'curl').write_text('''#!/usr/bin/env python3
+import os, sys
+from pathlib import Path
+target = Path(sys.argv[sys.argv.index('--output') + 1])
+data = b'signature' if target.name.endswith('.sig') else b'pkg'
+target.write_bytes(b'bad' if os.environ.get('SYNC_TEST_BAD_DOWNLOAD') else data)
+''')
+        (binary / 'curl').chmod(0o755)
         self.env = dict(os.environ, PATH=str(binary) + ':' + os.environ['PATH'],
                         SYNC_TEST_ROOT=str(self.root), FTP_USERNAME='test-user',
                         FTP_PASSWORD='test-password', BUCKET_NAME='test-bucket')
@@ -76,7 +85,8 @@ class SyncTests(unittest.TestCase):
 
     def database(self, path, filename='pkg-1-1-any.pkg.tar.zst'):
         signature = base64.b64encode(b'signature').decode()
-        content = f'%FILENAME%\n{filename}\n\n%CSIZE%\n3\n\n%PGPSIG%\n{signature}\n'.encode()
+        checksum = hashlib.sha256(b'pkg').hexdigest()
+        content = f'%FILENAME%\n{filename}\n\n%CSIZE%\n3\n\n%SHA256SUM%\n{checksum}\n\n%PGPSIG%\n{signature}\n'.encode()
         with tarfile.open(path, 'w:gz') as archive:
             entry = tarfile.TarInfo('pkg-1-1/desc')
             entry.size = len(content)
@@ -139,9 +149,26 @@ class SyncTests(unittest.TestCase):
         self.assertEqual([call['stage'] for call in self.calls()],
                          ['metadata', 'probe', 'packages', 'packages', 'packages'])
         transfers = [call for call in self.calls() if call['stage'] == 'packages']
-        self.assertIn('https://ftp.halifax.rwth-aachen.de/archlinux/', transfers[2]['commands'])
+        self.assertNotIn('"https://', transfers[2]['commands'])
         self.assertTrue(all(call['transfer'] == transfers[0]['transfer'] for call in transfers))
         self.assertNotIn('synchronization completed', result.stdout)
+
+    def test_local_fallback_recovers_remote_transfer_resets(self):
+        result = self.run_sync(SYNC_TEST_RESET='remote', SYNC_TEST_EMPTY_REMOTE='1')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('retrying upload from local files', result.stdout)
+        for repo in ('core', 'multilib', 'extra'):
+            calls = [call for call in self.calls() if call['repo'] == repo]
+            self.assertEqual([call['stage'] for call in calls],
+                             ['metadata', 'probe', 'packages', 'packages', 'packages', 'publish'])
+            self.assertNotIn('"https://', calls[-2]['commands'])
+
+    def test_corrupt_local_fallback_blocks_upload_and_publication(self):
+        result = self.run_sync(SYNC_TEST_RESET='remote', SYNC_TEST_EMPTY_REMOTE='1',
+                               SYNC_TEST_BAD_DOWNLOAD='1')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual([call['stage'] for call in self.calls()],
+                         ['metadata', 'probe', 'packages', 'packages'])
 
     def test_matching_exact_sizes_skip_existing_packages_and_signatures(self):
         result = self.run_sync()

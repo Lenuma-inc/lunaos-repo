@@ -11,6 +11,8 @@ if [[ ! "$BUCKET_NAME" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]]; then
 fi
 
 MIRROR_BASE='https://mirrors.ocf.berkeley.edu/archlinux'
+# Test source-dependent resets without changing the pinned databases.
+TRANSFER_MIRRORS=("$MIRROR_BASE" 'https://frankfurt.mirror.pkgbuild.com' 'https://ftp.halifax.rwth-aachen.de/archlinux')
 LFTP_HOST='ftp.ru1.storage.beget.cloud'
 PARALLEL_JOBS=5
 PACKAGE_PATTERN='^[a-zA-Z0-9][a-zA-Z0-9_@+:.%-]*[.]pkg[.]tar[.](zst|xz)$'
@@ -19,10 +21,6 @@ trap 'rm -rf -- "$TEMP_DIR"' EXIT
 trap 'echo "[ERROR] Mirror sync failed at line $LINENO" >&2' ERR
 
 cat > "$TEMP_DIR/lftp.conf" <<'CONFIG'
-set log:show-time yes
-set log:show-pid yes
-# Level 5 exposes FTP passwords; level 3 keeps connection events and errors.
-debug 3
 set cmd:fail-exit yes
 set cmd:move-background no
 set net:timeout 30
@@ -105,7 +103,7 @@ EOF
 
     # Reuse FTP connections and publish each upload only when it is complete.
     for attempt in 1 2 3; do
-        echo "[INFO] $repo: transfer attempt $attempt/3 ($(date -u +%FT%TZ))"
+        source_url="${TRANSFER_MIRRORS[attempt-1]}/$repo/os/x86_64"
         if lftp -u "$FTP_USERNAME,$FTP_PASSWORD" "$LFTP_HOST" 2> "$TEMP_DIR/transfer.error" <<EOF
 source "$TEMP_DIR/lftp.conf"
 mkdir -p "$BUCKET_NAME/archlinux-mirror/$repo/os/x86_64"
@@ -129,7 +127,7 @@ EOF
                 ! grep -Eq '550 .*connection reset by peer' "$TEMP_DIR/transfer.error"; then
                 exit "$status"
             fi
-            echo "[WARN] $repo: connection reset; retrying transfer ($attempt/3)" >&2
+            echo "[WARN] $repo: connection reset; switching package mirror ($attempt/3)" >&2
             sleep 2
         fi
     done

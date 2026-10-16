@@ -96,9 +96,6 @@ class SyncTests(unittest.TestCase):
         calls = self.calls()
         self.assertEqual([call['stage'] for call in calls], ['metadata', 'probe', 'packages', 'publish'] * 3)
         for call in calls:
-            self.assertIn('set log:show-time yes', call['settings'])
-            self.assertIn('set log:show-pid yes', call['settings'])
-            self.assertIn('debug 3', call['settings'])
             self.assertIn('set ftp:ssl-force yes', call['settings'])
             self.assertIn('set ftp:ssl-protect-data yes', call['settings'])
             self.assertNotIn('ftp://', call['commands'])
@@ -126,16 +123,24 @@ class SyncTests(unittest.TestCase):
     def test_connection_reset_retries_before_publication(self):
         result = self.run_sync(SYNC_TEST_RESET='once')
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('[INFO] core: transfer attempt 1/3 (', result.stdout)
-        self.assertIn('[INFO] core: transfer attempt 2/3 (', result.stdout)
         self.assertEqual([call['stage'] for call in self.calls()],
                          ['metadata', 'probe', 'packages', 'packages', 'publish'] * 3)
+        for repo in ('core', 'multilib', 'extra'):
+            calls = [call for call in self.calls() if call['repo'] == repo]
+            self.assertIn('https://mirrors.ocf.berkeley.edu/archlinux/', calls[0]['commands'])
+            transfers = [call for call in calls if call['stage'] == 'packages']
+            self.assertIn('https://mirrors.ocf.berkeley.edu/archlinux/', transfers[0]['commands'])
+            self.assertIn('https://frankfurt.mirror.pkgbuild.com/', transfers[1]['commands'])
+            self.assertEqual(transfers[0]['transfer'], transfers[1]['transfer'])
 
     def test_repeated_connection_reset_blocks_publication(self):
         result = self.run_sync(SYNC_TEST_RESET='always')
         self.assertEqual(result.returncode, 7, result.stderr)
         self.assertEqual([call['stage'] for call in self.calls()],
                          ['metadata', 'probe', 'packages', 'packages', 'packages'])
+        transfers = [call for call in self.calls() if call['stage'] == 'packages']
+        self.assertIn('https://ftp.halifax.rwth-aachen.de/archlinux/', transfers[2]['commands'])
+        self.assertTrue(all(call['transfer'] == transfers[0]['transfer'] for call in transfers))
         self.assertNotIn('synchronization completed', result.stdout)
 
     def test_matching_exact_sizes_skip_existing_packages_and_signatures(self):

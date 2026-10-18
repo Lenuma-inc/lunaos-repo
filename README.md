@@ -41,3 +41,19 @@ all packages or enter package directories.
 Removing a source from `packages.tsv` retires its published packages. For older
 archives without `.buildbot.json` metadata, also add the `pkgbase` to
 [`retired-pkgbases.txt`](retired-pkgbases.txt).
+
+## Arch mirror sync
+
+`arch-sync.yml` syncs Arch packages to Beget S3 at
+`https://s3.ru1.storage.beget.cloud` (region `ru1`), under
+`archlinux-mirror/{core,multilib,extra}/os/x86_64/`.
+
+The workflow uses these GitHub Actions secrets:
+
+- `FTP_USERNAME`: S3 access key.
+- `FTP_PASSWORD`: S3 secret key.
+- `S3_BUCKET_NAME`: bucket name.
+
+For a local run, install `aws-cli`, `curl`, `lftp`, and Python. Set
+`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `BUCKET_NAME`, then run
+`./sync-archlinux.sh`.

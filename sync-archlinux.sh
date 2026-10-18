@@ -1,261 +1,198 @@
 #!/bin/bash
-set -o pipefail
+set -euo pipefail
+export LC_ALL=C
 
-REPOS=("core" "multilib" "extra")
-ARCH="x86_64"
-MIRROR_BASE="https://mirrors.ocf.berkeley.edu/archlinux"
+: "${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID is required}"
+: "${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY is required}"
+: "${BUCKET_NAME:?BUCKET_NAME is required}"
+if [[ ! "$BUCKET_NAME" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]]; then
+    echo '[ERROR] Invalid bucket name' >&2
+    exit 1
+fi
 
-# FTP
-LFTP_HOST="ftp.ru1.storage.beget.cloud"
-LFTP_USER="$FTP_USERNAME"
-LFTP_PASS="$FTP_PASSWORD"
-REMOTE_DIR="$BUCKET_NAME/archlinux-mirror"
-
+MIRROR_BASE='https://mirrors.ocf.berkeley.edu/archlinux'
 PARALLEL_JOBS=5
-MAX_RETRIES=3
-
-# Create temp directory for downloads
+PACKAGE_PATTERN='^[a-zA-Z0-9][a-zA-Z0-9_@+:.%-]*[.]pkg[.]tar[.](zst|xz)$'
 TEMP_DIR=$(mktemp -d -t arch-mirror.XXXXXXXXXX)
-trap "rm -rf '$TEMP_DIR'" EXIT
+trap 'rm -rf -- "$TEMP_DIR"' EXIT
+trap 'echo "[ERROR] Mirror sync failed at line $LINENO" >&2' ERR
 
-# URL decode function
-urldecode() {
-    local url_encoded="${1//+/ }"
-    printf '%b' "${url_encoded//%/\\x}"
+cat > "$TEMP_DIR/lftp.conf" <<'CONFIG'
+set cmd:fail-exit yes
+set cmd:move-background no
+set net:timeout 30
+set net:max-retries 3
+set net:reconnect-interval-base 2
+set net:reconnect-interval-max 10
+CONFIG
+
+export AWS_CONFIG_FILE="$TEMP_DIR/aws.conf"
+export AWS_PAGER=''
+cat > "$AWS_CONFIG_FILE" <<'CONFIG'
+[default]
+region = ru1
+retry_mode = standard
+max_attempts = 3
+request_checksum_calculation = when_required
+response_checksum_validation = when_required
+s3 =
+    addressing_style = path
+    max_concurrent_requests = 1
+CONFIG
+
+aws_s3() {
+    aws --endpoint-url https://s3.ru1.storage.beget.cloud --region ru1 "$@"
 }
 
-# Get list of files from source mirror
-get_file_list() {
-    local repo=$1
-    local mirror="$MIRROR_BASE/$repo/os/$ARCH/"
-    echo "[INFO] Fetching file list from $mirror ..." >&2
+list_remote() {
+    # AWS CLI automatically follows all ListObjectsV2 pages.
+    aws_s3 s3api list-objects-v2 --bucket "$BUCKET_NAME" --prefix "$prefix" \
+        --delimiter / --output json > "$TEMP_DIR/remote.json"
+    python3 - "$prefix" "$TEMP_DIR/remote.json" > "$TEMP_DIR/remote.sizes" <<'PYTHON'
+import json
+import sys
 
-    local temp_html="$TEMP_DIR/${repo}_source.html"
-
-    if ! curl -s -f --connect-timeout 30 --max-time 60 "$mirror" -o "$temp_html"; then
-        echo "[ERROR] Failed to fetch source page: $mirror" >&2
-        return 1
-    fi
-
-    # Parse links from OCF-style HTML table
-    grep -oP '(?<=<td class="link"><a href=")[^"]+' "$temp_html" \
-        | grep -E '\.pkg\.tar\.zst$|\.sig$|\.db$|\.files$' \
-        | while read -r file; do
-            decoded_file=$(urldecode "$file")
-            echo "${mirror}${file}|$repo/os/$ARCH/${decoded_file}"
-        done > "$TEMP_DIR/${repo}_parsed.txt"
-
-    # Fallback parser if main failed
-    if [ ! -s "$TEMP_DIR/${repo}_parsed.txt" ]; then
-        echo "[WARN] Fallback parser triggered for $repo" >&2
-        grep -oP 'href="[^"]+\.(pkg\.tar\.zst|sig|db|files)"' "$temp_html" \
-            | sed 's/^href="//;s/"$//' \
-            | while read -r file; do
-                decoded_file=$(urldecode "$file")
-                echo "${mirror}${file}|$repo/os/$ARCH/${decoded_file}"
-            done > "$TEMP_DIR/${repo}_parsed.txt"
-    fi
-
-    rm -f "$temp_html"
-    cat "$TEMP_DIR/${repo}_parsed.txt"
+prefix = sys.argv[1]
+with open(sys.argv[2]) as stream:
+    for item in json.load(stream).get('Contents', []):
+        key = item['Key']
+        name = key[len(prefix):]
+        if key.startswith(prefix) and name and '/' not in name and not any(c.isspace() for c in name):
+            print(item['Size'], name)
+PYTHON
+    awk '{ print $2 }' "$TEMP_DIR/remote.sizes" > "$TEMP_DIR/remote.names"
 }
 
-# Get all remote files for a repo in one go
-get_remote_files_bulk() {
-    local repo=$1
-    local rel_dir="$repo/os/$ARCH"
-    echo "[INFO] Fetching remote file list for $repo from $REMOTE_DIR/$rel_dir ..." >&2
-
-    local dir_check=$(lftp -u "$LFTP_USER","$LFTP_PASS" "$LFTP_HOST" <<-EOF 2>&1
-	set ftp:passive-mode yes;
-	set net:timeout 30;
-	cd $REMOTE_DIR/$rel_dir && echo "DIR_EXISTS" || echo "DIR_NOT_FOUND";
-	bye
-	EOF
-    )
-
-    if echo "$dir_check" | grep -q "DIR_NOT_FOUND"; then
-        echo "[WARN] Remote directory does not exist: $REMOTE_DIR/$rel_dir" >&2
-        return 0
-    fi
-
-    lftp -u "$LFTP_USER","$LFTP_PASS" "$LFTP_HOST" <<-EOF 2>&1 \
-        | grep -v '^total\|^cd ok\|^DIR_EXISTS' \
-        | awk '{print $NF}' \
-        | grep -vE '^\.$|^\.\.$' \
-        | grep -E '\.(pkg\.tar\.zst|sig|db|files)$'
-	set ftp:passive-mode yes;
-	set net:timeout 30;
-	set net:max-retries 2;
-	cd $REMOTE_DIR/$rel_dir;
-	cls -1;
-	bye
-	EOF
-}
-
-ensure_remote_dir() {
-    local rel_dir=$1
-    lftp -u "$LFTP_USER","$LFTP_PASS" "$LFTP_HOST" <<-EOF >/dev/null 2>&1
-	set ftp:passive-mode yes;
-	set net:timeout 30;
-	mkdir -p $REMOTE_DIR/$rel_dir;
-	bye
-	EOF
-}
-
-upload_file() {
-    local input="$1"
-    local url="${input%%|*}"
-    local rel_path="${input##*|}"
-    local remote_dir="$(dirname "$rel_path")"
-    local file_name="$(basename "$rel_path")"
-
-    local temp_file=$(mktemp "$TEMP_DIR/mirror.XXXXXXXXXX")
-
-    for ((i=1; i<=MAX_RETRIES; i++)); do
-        echo "[INFO] Attempt $i/$MAX_RETRIES: $file_name" >&2
-
-        if curl -fL --retry 2 --connect-timeout 30 --max-time 300 \
-               -o "$temp_file" "$url" 2>/dev/null; then
-
-            if lftp -u "$LFTP_USER","$LFTP_PASS" "$LFTP_HOST" <<-EOF >/dev/null 2>&1
-				set cmd:fail-exit yes;
-				set net:max-retries 2;
-				set net:timeout 60;
-				set ftp:passive-mode yes;
-				cd $REMOTE_DIR/$remote_dir || exit 1;
-				put "$temp_file" -o "$file_name";
-				bye
-				EOF
-            then
-                rm -f "$temp_file"
-                echo "[OK] $file_name" >&2
-                return 0
-            fi
+transfer() {
+    local file="$1" staging downloaded=0 mirror size
+    staging=$(mktemp -d "$TEMP_DIR/package.XXXXXXXXXX")
+    trap "rm -rf -- '$staging'" EXIT
+    for mirror in "$MIRROR_BASE" https://frankfurt.mirror.pkgbuild.com https://ftp.halifax.rwth-aachen.de/archlinux; do
+        if curl --fail --silent --show-error --location --retry 2 \
+            --output "$staging/$file" "$mirror/$repo/os/x86_64/$file"; then
+            downloaded=1
+            break
         fi
-
-        rm -f "$temp_file"
-        [ $i -lt $MAX_RETRIES ] && sleep 5
     done
-
-    echo "[ERROR] Failed: $file_name" >&2
-    return 1
+    [[ "$downloaded" == 1 && -s "$staging/$file" ]]
+    size=$(awk -v name="$file" '$1 == name { print $2 }' "$TEMP_DIR/expected.sizes")
+    [[ "$size" == '?' || "$(stat -c %s "$staging/$file")" == "$size" ]]
+    awk -v name="$file" '$2 == name' "$TEMP_DIR/expected.sha256" > "$staging/checksums"
+    if [[ -s "$staging/checksums" ]]; then
+        (cd "$staging" && sha256sum --check --quiet checksums)
+    fi
+    aws_s3 s3 cp "$staging/$file" "$target_dir/$file" --only-show-errors
 }
+export -f aws_s3 transfer
+export TEMP_DIR MIRROR_BASE BUCKET_NAME
 
-delete_obsolete_files() {
-    local repo=$1
-    local rel_dir="$repo/os/$ARCH"
-    local source_files_list="$TEMP_DIR/${repo}_source_names.txt"
-    local remote_files_list="$TEMP_DIR/${repo}_remote.txt"
+for repo in core multilib extra; do
+    echo "[INFO] Syncing $repo"
+    metadata="$TEMP_DIR/$repo"
+    mkdir "$metadata"
+    source_url="$MIRROR_BASE/$repo/os/x86_64"
+    prefix="archlinux-mirror/$repo/os/x86_64/"
+    target_dir="s3://$BUCKET_NAME/${prefix%/}"
+    export repo target_dir
 
-    echo "[INFO] Checking for obsolete files in $repo ..." >&2
-
-    awk -F'|' '{print $2}' "$TEMP_DIR/${repo}_source_full.txt" \
-        | awk -F'/' '{print $NF}' | sort > "$source_files_list"
-
-    local source_count=$(wc -l < "$source_files_list")
-    local remote_count=$(wc -l < "$remote_files_list")
-
-    echo "[DEBUG] Source files: $source_count, Remote files: $remote_count" >&2
-
-    if [ $source_count -eq 0 ]; then
-        echo "[ERROR] Source file list is EMPTY! Skipping deletion to prevent data loss!" >&2
-        return 1
-    fi
-
-    if [ $source_count -lt 100 ] && [ $remote_count -gt 400 ]; then
-        echo "[ERROR] Source file list seems incomplete ($source_count files). Skipping deletion to prevent data loss!" >&2
-        return 1
-    fi
-
-    files_to_delete=$(comm -13 "$source_files_list" "$remote_files_list")
-
-    if [ -n "$files_to_delete" ]; then
-        local delete_count=$(echo "$files_to_delete" | wc -l)
-        echo "[INFO] Found $delete_count obsolete files to delete" >&2
-
-        if [ $delete_count -gt $((remote_count / 2)) ]; then
-            echo "[ERROR] Attempting to delete more than 50% of files ($delete_count/$remote_count). Aborting!" >&2
-            return 1
+    # Pin the databases before copying the packages they reference.
+    lftp <<EOF
+source "$TEMP_DIR/lftp.conf"
+mirror --no-recursion --dereference --no-perms --verbose \
+    --exclude-glob '*' --include '(^|/)$repo\.(db|files)(\.sig)?$' \
+    "$source_url" "$metadata"
+bye
+EOF
+    for database in db files; do
+        tar -xOf "$metadata/$repo.$database" --wildcards '*/desc' |
+            awk '$0 == "%FILENAME%" { getline; print }' |
+            sort -u > "$TEMP_DIR/$database.names"
+        if [[ ! -s "$TEMP_DIR/$database.names" ]] ||
+            grep -qEv "$PACKAGE_PATTERN" "$TEMP_DIR/$database.names"; then
+            echo "[ERROR] Invalid or empty $repo.$database package list" >&2
+            exit 1
         fi
-
-        echo "$files_to_delete" | while read -r remote_file; do
-            [ -z "$remote_file" ] && continue
-            echo "[DELETE] $remote_file" >&2
-            lftp -u "$LFTP_USER","$LFTP_PASS" "$LFTP_HOST" <<-EOF >/dev/null 2>&1
-			set ftp:passive-mode yes;
-			set net:timeout 30;
-			rm -f $REMOTE_DIR/$rel_dir/$remote_file;
-			bye
-			EOF
-        done
-    else
-        echo "[INFO] No obsolete files found in $repo" >&2
+    done
+    if ! cmp -s "$TEMP_DIR/db.names" "$TEMP_DIR/files.names"; then
+        echo "[ERROR] $repo.db and $repo.files describe different packages; retry later" >&2
+        exit 1
     fi
-}
+    awk '{ print; print $0 ".sig" }' "$TEMP_DIR/db.names" |
+        sort -u > "$TEMP_DIR/required.names"
 
-find_missing_files() {
-    local repo=$1
-    local source_files_list="$TEMP_DIR/${repo}_source_full.txt"
-    local remote_files_list="$TEMP_DIR/${repo}_remote.txt"
+    # HTTP directory listings contain rounded sizes; the database has exact byte counts.
+    python3 - "$metadata/$repo.db" "$TEMP_DIR/expected.sha256" > "$TEMP_DIR/expected.sizes" <<'PY'
+import base64
+import hashlib
+import sys
+import tarfile
 
-    echo "[INFO] Comparing file lists for $repo ..." >&2
+with tarfile.open(sys.argv[1]) as archive, open(sys.argv[2], 'w') as checksums:
+    for entry in archive.getmembers():
+        if not entry.isfile() or not entry.name.endswith('/desc'):
+            continue
+        with archive.extractfile(entry) as stream:
+            fields = {}
+            for block in stream.read().decode().strip().split('\n\n'):
+                key, _, value = block.partition('\n')
+                fields[key] = value
+        name = fields['%FILENAME%']
+        size = int(fields['%CSIZE%'])
+        if size <= 0:
+            raise ValueError(f'Invalid package size: {name}')
+        signature = fields.get('%PGPSIG%')
+        signature_size = len(base64.b64decode(signature, validate=True)) if signature else '?'
+        checksum = fields['%SHA256SUM%']
+        if len(checksum) != 64 or any(c not in '0123456789abcdef' for c in checksum):
+            raise ValueError(f'Invalid package checksum: {name}')
+        checksums.write(f'{checksum}  {name}\n')
+        if signature:
+            digest = hashlib.sha256(base64.b64decode(signature, validate=True)).hexdigest()
+            checksums.write(f'{digest}  {name}.sig\n')
+        print(f'{name}\t{size}')
+        print(f'{name}.sig\t{signature_size}')
+PY
+    list_remote
+    awk 'FILENAME == ARGV[1] { if ($1 ~ /^[0-9]+$/) sizes[$2] = $1; next }
+         $2 == "?" || !($1 in sizes) || sizes[$1] != $2 { print $1 }' \
+        "$TEMP_DIR/remote.sizes" "$TEMP_DIR/expected.sizes" > "$TEMP_DIR/transfer.names"
+    echo "[INFO] $repo: $(wc -l < "$TEMP_DIR/transfer.names") of $(wc -l < "$TEMP_DIR/required.names") files need transfer"
 
-    while IFS='|' read -r url rel_path; do
-        file_name="$(basename "$rel_path")"
-        if ! grep -q "^${file_name}$" "$remote_files_list" 2>/dev/null; then
-            echo "$url|$rel_path"
+    # Each worker stages one verified file; S3 publishes only complete uploads.
+    xargs -r -d '\n' -P "$PARALLEL_JOBS" -I '{}' \
+        bash -euo pipefail -c 'transfer "$1"' _ '{}' < "$TEMP_DIR/transfer.names"
+    list_remote
+    sort -u "$TEMP_DIR/remote.names" > "$TEMP_DIR/remote.sorted"
+    comm -23 "$TEMP_DIR/required.names" "$TEMP_DIR/remote.sorted" > "$TEMP_DIR/missing.names"
+    if [[ -s "$TEMP_DIR/missing.names" ]]; then
+        echo "[ERROR] $repo is missing packages or signatures; keeping published databases" >&2
+        cat "$TEMP_DIR/missing.names" >&2
+        exit 1
+    fi
+    awk 'FILENAME == ARGV[1] { if ($1 ~ /^[0-9]+$/) sizes[$2] = $1; next }
+         !($1 in sizes) || sizes[$1] <= 0 || ($2 != "?" && sizes[$1] != $2) { print $1 }' \
+        "$TEMP_DIR/remote.sizes" "$TEMP_DIR/expected.sizes" > "$TEMP_DIR/incorrect.sizes"
+    if [[ -s "$TEMP_DIR/incorrect.sizes" ]]; then
+        echo "[ERROR] $repo has incomplete packages or signatures; keeping published databases" >&2
+        cat "$TEMP_DIR/incorrect.sizes" >&2
+        exit 1
+    fi
+
+    awk -v pattern="${PACKAGE_PATTERN%$}([.]sig)?$" '$0 ~ pattern' \
+        "$TEMP_DIR/remote.sorted" > "$TEMP_DIR/remote.packages"
+    comm -13 "$TEMP_DIR/required.names" "$TEMP_DIR/remote.packages" > "$TEMP_DIR/obsolete.names"
+    aws_s3 s3 cp "$metadata/" "$target_dir/" --recursive --only-show-errors
+    for database in db files; do
+        signature="$repo.$database.sig"
+        if [[ ! -f "$metadata/$signature" ]] &&
+            grep -Fxq "$signature" "$TEMP_DIR/remote.sorted"; then
+            aws_s3 s3 rm "$target_dir/$signature" --only-show-errors
         fi
-    done < "$source_files_list"
-}
-
-export -f upload_file urldecode
-export LFTP_HOST LFTP_USER LFTP_PASS REMOTE_DIR MAX_RETRIES TEMP_DIR
-
-echo "[INFO] Starting incremental mirror with temp directory: $TEMP_DIR"
-
-for repo in "${REPOS[@]}"; do
-    echo ""
-    echo "[INFO] ======================================" >&2
-    echo "[INFO] Processing repo: $repo" >&2
-    echo "[INFO] ======================================" >&2
-
-    ensure_remote_dir "$repo/os/$ARCH"
-
-    echo "[INFO] Fetching source file list for $repo ..." >&2
-    if ! get_file_list "$repo" > "$TEMP_DIR/${repo}_source_full.txt"; then
-        echo "[ERROR] Failed to get source file list for $repo. Skipping!" >&2
-        continue
-    fi
-
-    source_file_count=$(wc -l < "$TEMP_DIR/${repo}_source_full.txt")
-    echo "[INFO] Found $source_file_count files in source for $repo" >&2
-
-    if [ "$source_file_count" -eq 0 ]; then
-        echo "[ERROR] Source file list is empty for $repo! Skipping!" >&2
-        continue
-    fi
-
-    get_remote_files_bulk "$repo" | sort > "$TEMP_DIR/${repo}_remote.txt"
-    remote_file_count=$(wc -l < "$TEMP_DIR/${repo}_remote.txt")
-    echo "[INFO] Found $remote_file_count files on remote for $repo" >&2
-
-    if ! delete_obsolete_files "$repo"; then
-        echo "[WARN] Skipped deletion phase due to safety checks" >&2
-    fi
-
-    echo "[INFO] Finding missing files for $repo ..." >&2
-    missing_count=$(find_missing_files "$repo" | tee "$TEMP_DIR/${repo}_missing.txt" | wc -l)
-
-    if [ "$missing_count" -gt 0 ]; then
-        echo "[INFO] Found $missing_count files to upload for $repo" >&2
-        cat "$TEMP_DIR/${repo}_missing.txt" | xargs -r -n1 -P "$PARALLEL_JOBS" bash -c 'upload_file "$@"' _
-    else
-        echo "[INFO] No missing files for $repo, repository is up to date" >&2
-    fi
+    done
+    while IFS= read -r file; do
+        aws_s3 s3 rm "$target_dir/$file" --only-show-errors
+    done < "$TEMP_DIR/obsolete.names"
+    echo "[OK] $repo synchronized"
 done
 
-echo ""
-echo "[INFO] ======================================" >&2
-echo "[INFO] Incremental mirroring completed!" >&2
-echo "[INFO] ======================================" >&2
+echo '[OK] Arch mirror synchronization completed'

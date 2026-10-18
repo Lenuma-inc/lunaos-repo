@@ -2,7 +2,7 @@ name: Arch Linux Mirror Sync
 
 on:
   schedule:
-    - cron: "17 */12 * * *" # “At minute 17 past every 12th hour.”
+    - cron: "17 */12 * * *"
   workflow_dispatch:
 
 concurrency:
@@ -24,8 +24,8 @@ jobs:
 
     env:
       BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
-      FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-      FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.FTP_USERNAME }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.FTP_PASSWORD }}
 
     steps:
       - name: Checkout repository
@@ -34,10 +34,9 @@ jobs:
       - name: Prepare Arch Linux container
         run: |
           pacman -Syuu --noconfirm --disable-download-timeout --needed \
-            curl lftp wget
+            curl lftp python aws-cli
           pacman-key --init
           pacman -S --noconfirm archlinux-keyring || true
-          # Remove broken cache directories before cleaning
           rm -rf /var/cache/pacman/pkg/download-*
           yes | pacman -Scc
           useradd -m user -G wheel && echo "user ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
@@ -47,4 +46,5 @@ jobs:
       - name: Run Arch Linux mirror sync
         run: |
           chmod +x ./sync-archlinux.sh
+          python -m unittest test_sync_archlinux.py -v
           ./sync-archlinux.sh

@@ -35,6 +35,13 @@ assert '--no-paginate' not in args and '--no-sign-request' not in args
 config = Path(os.environ['AWS_CONFIG_FILE']).read_text()
 assert 'addressing_style = path' in config and 'max_concurrent_requests = 1' in config
 args = args[4:]
+if args[:2] == ['s3', 'cp'] and args[3] == 's3://test-bucket/archlinux-mirror/lastsync':
+    with (root / 'calls.jsonl').open('a') as out:
+        out.write(json.dumps({'repo': None, 'stage': 'lastsync', 'args': args}) + '\n')
+    if os.environ.get('SYNC_TEST_FAIL') == 'lastsync':
+        sys.exit(7)
+    (root / 'lastsync').write_bytes(Path(args[2]).read_bytes())
+    sys.exit(0)
 repo = re.search(r'archlinux-mirror/(core|multilib|extra)/', ' '.join(args)).group(1)
 package = os.environ.get('SYNC_TEST_PACKAGE', 'pkg-1-1-any.pkg.tar.zst')
 with (root / 'aws.lock').open('w') as lock:
@@ -89,6 +96,11 @@ from pathlib import Path
 root = Path(os.environ['SYNC_TEST_ROOT'])
 with (root / 'curl.jsonl').open('a') as out:
     out.write(json.dumps(sys.argv[-1]) + '\n')
+if sys.argv[-1].endswith('/lastsync'):
+    if os.environ.get('SYNC_TEST_FAIL') == 'lastsync-download':
+        sys.exit(22)
+    Path(sys.argv[sys.argv.index('--output') + 1]).write_text(os.environ.get('SYNC_TEST_LASTSYNC', '1792396800\n'))
+    sys.exit(0)
 if os.environ.get('SYNC_TEST_DOWNLOAD_FAIL') or (os.environ.get('SYNC_TEST_MIRROR_FAIL') and 'berkeley.edu' in sys.argv[-1]):
     sys.exit(22)
 target = Path(sys.argv[sys.argv.index('--output') + 1])
@@ -138,6 +150,8 @@ class SyncTests(unittest.TestCase):
         result = self.run_sync()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('0 of 2 files need transfer', result.stdout)
+        self.assertEqual((self.root / 'lastsync').read_text(), '1792396800\n')
+        self.assertEqual(self.calls()[-1]['stage'], 'lastsync')
         for repo in ('core', 'multilib', 'extra'):
             calls = [call for call in self.calls() if call['repo'] == repo]
             self.assertEqual([c['stage'] for c in calls], ['metadata', 'probe', 'verify', 'publish', 'delete', 'delete', 'delete'])
@@ -166,8 +180,28 @@ class SyncTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertNotIn('synchronization completed', result.stdout)
                 self.assertNotIn('delete', [c['stage'] for c in self.calls()])
+                self.assertFalse((self.root / 'lastsync').exists())
                 if stage != 'publish':
                     self.assertNotIn('publish', [c['stage'] for c in self.calls()])
+
+    def test_invalid_lastsync_blocks_sync(self):
+        for value in ('', 'invalid\n', '123\n456\n'):
+            with self.subTest(value=value):
+                result = self.run_sync(SYNC_TEST_LASTSYNC=value)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('Invalid upstream lastsync', result.stderr)
+                self.assertEqual(self.calls(), [])
+
+    def test_lastsync_download_failure_blocks_sync(self):
+        result = self.run_sync(SYNC_TEST_FAIL='lastsync-download')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.calls(), [])
+
+    def test_lastsync_upload_failure_is_not_reported_as_success(self):
+        result = self.run_sync(SYNC_TEST_FAIL='lastsync')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn('synchronization completed', result.stdout)
+        self.assertFalse((self.root / 'lastsync').exists())
 
     def test_truncated_package_is_selected_without_resending_signature(self):
         result = self.run_sync(SYNC_TEST_REMOTE_SIZE='2')

@@ -47,6 +47,8 @@ archives without `.buildbot.json` metadata, also add the `pkgbase` to
 `arch-sync.yml` syncs Arch packages to Beget S3 at
 `https://s3.ru1.storage.beget.cloud` (region `ru1`), under
 `archlinux-mirror/{core,multilib,extra}/os/x86_64/`.
+After all repositories sync successfully, `archlinux-mirror/lastsync` publishes
+the upstream Unix timestamp captured before the sync.
 
 The workflow uses these GitHub Actions secrets:
 

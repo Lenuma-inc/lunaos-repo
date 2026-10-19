@@ -86,6 +86,13 @@ transfer() {
 export -f aws_s3 transfer
 export TEMP_DIR MIRROR_BASE BUCKET_NAME
 
+curl --fail --silent --show-error --location --retry 2 \
+    --output "$TEMP_DIR/lastsync" "$MIRROR_BASE/lastsync"
+if [[ ! "$(cat "$TEMP_DIR/lastsync")" =~ ^[0-9]+$ ]]; then
+    echo '[ERROR] Invalid upstream lastsync' >&2
+    exit 1
+fi
+
 for repo in core multilib extra; do
     echo "[INFO] Syncing $repo"
     metadata="$TEMP_DIR/$repo"
@@ -195,4 +202,6 @@ PY
     echo "[OK] $repo synchronized"
 done
 
+aws_s3 s3 cp "$TEMP_DIR/lastsync" "s3://$BUCKET_NAME/archlinux-mirror/lastsync" \
+    --content-type text/plain --cache-control no-cache --only-show-errors
 echo '[OK] Arch mirror synchronization completed'

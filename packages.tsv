@@ -109,3 +109,4 @@ zsh4humans	https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/zsh4humans
 figma-linux-bin	https://github.com/archlinux/aur.git	figma-linux-bin	-s		
 galaxybudsclient-bin	https://github.com/archlinux/aur.git	galaxybudsclient-bin	-s		
 asusctltray-git	https://github.com/archlinux/aur.git	asusctltray-git	-d		
+lunaos-appstream-data	https://github.com/Lenuma-inc/appstream-data.git	main	-d		

@@ -144,6 +144,28 @@ class ArchiveScanTests(unittest.TestCase):
                     self.assertIn("compare/v74...v75", updated)
                     self.assertIn("blur-my-shell:75 -->", updated)
 
+    def test_nvchecker_issue_closes_after_published_package_is_renamed(self):
+        name = "dms-shell"
+        packages = {name: {"directory": name, "url": "https://gitlab.com/LunaOS/dms-shell.git"}}
+        metadata = {name: {"names": ["dux-shell"]}}
+        issue = {"number": 52, "title": f"[update] {name}: update upstream package",
+                 "body": f"nvchecker found upstream version `2.0.0` for `{name}`.\n\n"
+                         f"<!-- lunaos-buildbot:nvchecker:{name}:2.0.0 -->"}
+
+        def run(args, **kwargs):
+            if args[:3] == ["gh", "issue", "list"]:
+                return json.dumps([issue])
+            if args[0] == "vercmp":
+                return "0"
+            return ""
+
+        published = {"dux-shell": {"pkgver": "2.0.0-1", "pkgbase": "dux-shell"}}
+        with patch.object(buildbot, "run", side_effect=run) as command, patch.object(buildbot, "RUNTIME"):
+            buildbot.cleanup_issues(packages, published, metadata, set(), {})
+
+        close = next(call.args[0] for call in command.call_args_list if call.args[0][:3] == ["gh", "issue", "close"])
+        self.assertIn("Package renamed from `dms-shell` to `dux-shell`", close[5])
+
     def test_nvchecker_revision_resolves_lightweight_and_annotated_tags(self):
         tag_sha, commit_sha = "a" * 40, "b" * 40
         section = {"source": "github", "github": "example/project", "prefix": "v"}

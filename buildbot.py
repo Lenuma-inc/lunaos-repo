@@ -816,8 +816,8 @@ def cleanup_issues(packages, published, metadata, arch_updates, arch_versions, m
 
     def package_version(name):
         versions = [info["pkgver"] for package, info in published.items()
-                    if (owner := packages.get(package) or packages.get(info.get("pkgbase", "")))
-                    and owner["directory"] == name]
+                    if ((owner := packages.get(package) or packages.get(info.get("pkgbase", "")))
+                        and owner["directory"] == name or package in metadata.get(name, {}).get("names", []))]
         return max(versions, key=cmp_to_key(lambda left, right: int(run(["vercmp", left, right])))) if versions else None
 
     for issue in issues:
@@ -874,7 +874,10 @@ def cleanup_issues(packages, published, metadata, arch_updates, arch_versions, m
                 current = package_version(name)
                 if target and current:
                     if int(run(["vercmp", upstream_version(current), target[1]])) >= 0:
-                        reason = f"Resolved: LunaOS publishes `{current}`, which includes upstream `{target[1]}`."
+                        renamed = next((package for package in metadata.get(name, {}).get("names", [])
+                                        if package != name and package in published), None)
+                        rename_note = f" Package renamed from `{name}` to `{renamed}`." if renamed else ""
+                        reason = f"Resolved:{rename_note} LunaOS publishes `{current}`, which includes upstream `{target[1]}`."
                     else:
                         updated_body = re.sub(r"LunaOS publishes `[^`]+`", f"LunaOS publishes `{current}`", body)
                         if updated_body != body:

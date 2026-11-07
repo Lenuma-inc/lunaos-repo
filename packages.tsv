@@ -8,6 +8,7 @@ grub	https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/grub.
 pacman-mirrorlist	https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/pacman-mirrorlist.git	HEAD	-s		
 dracut	https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/dracut.git	HEAD	-s		
 throne-bin	https://github.com/archlinux/aur.git	throne-bin	-s		
+dmg2img	https://github.com/archlinux/aur.git	dmg2img	-si		
 linux-firmware-apple	https://gitlab.com/LunaOS/pkgbuilds/lunaos-extra-pkgbuilds/linux-firmware-apple.git	HEAD	-s		
 kernel-fsync-nobara	https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/kernel-fsync-nobara.git	HEAD	-s		
 lunaos-package-manager	https://gitlab.com/LunaOS/pkgbuilds/lunaos-core-pkgbuilds/system/base/lunaos-package-manager.git	HEAD	-si		

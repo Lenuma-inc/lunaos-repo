@@ -1277,7 +1277,6 @@ def main():
                                       "abi_triggers": abi_triggers})
     RUNTIME.log("build-plan", selected=len(selected), order=build_order)
     checkpoint()
-    firmware = Path(os.environ.get("FIRMWARE_TARBALL", "/tmp/lunaos-input/firmware.tar"))
     for name in build_order:
         with RUNTIME.context(name):
             if name in results:
@@ -1304,11 +1303,6 @@ def main():
                     metadata[name] = package_info(path)
                 else:
                     path = WORK / name
-                if name == "linux-firmware-apple":
-                    if not firmware.is_file():
-                        raise RuntimeError(f"required firmware archive is missing: {firmware}")
-                    shutil.copy2(firmware, path / "firmware.tar")
-                    run(["chown", "user:user", str(path / "firmware.tar")])
                 # Bootstrap cycles/unchanged local dependencies from the downloaded release.
                 local = []
                 for dependency in sorted(dependencies[name]):
